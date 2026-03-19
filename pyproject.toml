@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "documentor"
+version = "0.1.0"
+description = "A CLI tool for automatic documentation generation and management"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "documentor", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+typer = "^0.12.3"
+rich = "^13.7.1"
+langchain = "^0.3.0"
+langchain-core = "^0.3.0"
+langchain-anthropic = "^0.3.0"
+langchain-openai = "^0.3.0"
+langchain-google-genai = "^2.0.0"
+langchain-community = "^0.3.0"
+pydantic = "^2.9.2"
+pyyaml = "^6.0.2"
+pathspec = "^0.12.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+pytest-mock = "^3.14.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+documentor = "documentor.cli.app:app"
