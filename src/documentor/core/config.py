@@ -15,9 +15,7 @@ class Config(BaseModel):
     use_style_md: bool = Field(default=False, description="Whether to use the style.md file for formatting instructions when generating docs")
     style_md_path: str = Field(default="docs/style.md", description="Path to style.md file for formatting instructions")
     required_files: List[Dict[str, str]] = Field(
-        default=[
-            {"filename": "README.md", "type": "Project Overview and Quickstart"}
-            ],
+        default=[],
         description="Files that must be included in the documentation suite"
     )
 

@@ -13,7 +13,6 @@ __version__ = "0.0.0"
 
 app = typer.Typer(help="Documentor: A CLI tool for automatic documentation generation and management")
 console = Console()
-analyzer = Analyzer()
 
 def version_callback(value: bool):
     if value:
@@ -93,7 +92,6 @@ def init():
         ignore_patterns_str = handle_cancel(questionary.text("Enter ignore patterns (comma-separated):", default=".git, __pycache__, venv, .venv, env, node_modules, .env, *.pyc, *.pyo").ask())
         config_data["ignore_patterns"] = [p.strip() for p in ignore_patterns_str.split(",")]
 
-    # Create config using Pydantic model to handle defaults
     from documentor.core.config import Config
     import yaml
 
@@ -112,12 +110,31 @@ def init():
     if create_style:
         style_path = getattr(config, "style_md_path", "docs/style.md")
         os.makedirs(os.path.dirname(style_path) or ".", exist_ok=True)
+
+        # select a template
+        templates_dir = os.path.join(os.path.dirname(__file__), "..", "utils", "style_templates")
+        template_files = [f for f in os.listdir(templates_dir) if f.endswith(".md")]
+
+        choices = [f.replace(".md", "") for f in template_files] + ["empty"]
+        selected_template = handle_cancel(questionary.select(
+            "Choose a style template to initialize with:",
+            choices=choices,
+            default="empty"
+        ).ask())
+
         if not os.path.exists(style_path):
+            if selected_template == "empty":
+                content = "# Documentation Style Guide\n\nAdd your formatting and style instructions here. These will be used by Documentor when generating your docs.\n"
+            else:
+                template_path = os.path.join(templates_dir, f"{selected_template}.md")
+                with open(template_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+
             with open(style_path, "w", encoding="utf-8") as f:
-                f.write("# Documentation Style Guide\n\nAdd your formatting and style instructions here. These will be used by Documentor when generating your docs.\n")
-            console.print(f"[green]Created {style_path}[/green]")
+                f.write(content)
+            console.print(f"[green]Created {style_path} using {selected_template} template![/green]")
         else:
-            console.print(f"[yellow]{style_path} already exists.[/yellow]")
+            console.print(f"[yellow]{style_path} already exists. Skipping initialization.[/yellow]")
 
     console.print("[blue]Initialization complete! Run `documentor generate` to generate your documentation.[/blue]")
 
