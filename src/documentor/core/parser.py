@@ -40,7 +40,9 @@ class Parser:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, base_dir)
 
-                if not self.ignore_spec.match_file(rel_path):
+                not_ignored = not self.ignore_spec.match_file(rel_path)
+                not_too_large = os.path.getsize(file_path) <= self.config.ignore_above_size_kb * 1024
+                if not_ignored and not_too_large:
                     content = self._read_file(file_path)
                     if content is not None:
                         context.append({"path": rel_path, "content": content})

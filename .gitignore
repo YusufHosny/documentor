@@ -13,5 +13,9 @@ ENV/
 # ide stuff
 .vscode/
 .idea/
-.claude/
 
+# llm stuff
+.claude/
+CLAUDE.md
+GEMINI.md
+AGENTS.md
