@@ -7,11 +7,13 @@ from documentor.core.config import ConfigManager
 from documentor.llm.chains import generate_docs, edit_doc, expand_doc
 from documentor.core.parser import Parser
 from documentor.core.writer import Writer
+from documentor.core.analyzer import Analyzer
 
 __version__ = "0.0.0"
 
 app = typer.Typer(help="Documentor: A CLI tool for automatic documentation generation and management")
 console = Console()
+analyzer = Analyzer()
 
 def version_callback(value: bool):
     if value:
