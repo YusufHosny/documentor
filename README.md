@@ -11,7 +11,7 @@ A CLI tool for automatic documentation generation and management, powered by AI.
 
 ## Installation
 
-This project uses [Poetry](https://python-poetry.org/) for dependency management.
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
 
 ```bash
 # Clone the repository
@@ -19,10 +19,10 @@ git clone <repository_url>
 cd documentor
 
 # Install dependencies
-poetry install
+uv sync
 
 # Run the CLI
-poetry run documentor --help
+uv run documentor --help
 ```
 
 ## Usage

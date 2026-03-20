@@ -8,8 +8,27 @@ from documentor.llm.chains import generate_docs, edit_doc, expand_doc
 from documentor.core.parser import Parser
 from documentor.core.writer import Writer
 
+__version__ = "0.0.0"
+
 app = typer.Typer(help="Documentor: A CLI tool for automatic documentation generation and management")
 console = Console()
+
+def version_callback(value: bool):
+    if value:
+        console.print(f"Documentor version: {__version__}")
+        raise typer.Exit()
+
+@app.callback()
+def main(
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show the application's version and exit.",
+    )
+):
+    pass
 
 def handle_cancel(val):
     if val is None:
