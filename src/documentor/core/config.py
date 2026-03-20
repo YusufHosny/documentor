@@ -10,7 +10,6 @@ class Config(BaseModel):
     docs_dir: str = Field(default="docs", description="Output directory for generated documentation")
     include_footer: bool = Field(default=False, description="Append footer to generated markdown")
     
-    #TODO: analysis options: what to focus on (functional, descriptive, impact/results, usage), plan requirements, project goals, etc
     required_only: bool = Field(default=False, description="Whether to use the given required files only or analyze project context and generate a plan and filelist before generating docs")
     use_style_md: bool = Field(default=False, description="Whether to use the style.md file for formatting instructions when generating docs")
     style_md_path: str = Field(default="docs/style.md", description="Path to style.md file for formatting instructions")
@@ -25,6 +24,16 @@ class Config(BaseModel):
         description="Patterns to ignore when scanning project"
     )
     #TODO: semantically ignore files with llm/vectorsearch
+
+    # -------------------------- config helpers --------------------------
+    def get_style_guide(self) -> str:
+        """Loads the user's style guide if it exists, otherwise returns an empty string."""
+        style_path = self.style_md_path or os.path.join(self.docs_dir or "docs", "style.md")
+        if os.path.exists(style_path):
+            with open(style_path, "r", encoding="utf-8") as f:
+                return f.read()
+        else:
+            return ""
 
 class ConfigManager:
     def __init__(self, config_file: str = "documentor.yaml"):

@@ -9,7 +9,7 @@ def get_llm(config: Config) -> BaseChatModel:
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(model=config.model)
 
-    elif provider == "google":
+    elif provider in ["google", "vertexai"]:
         from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(model=config.model, vertexai=True)
 

@@ -7,7 +7,7 @@ from documentor.core.config import ConfigManager
 from documentor.llm.chains import generate_docs, edit_doc, expand_doc
 from documentor.core.parser import Parser
 from documentor.core.writer import Writer
-from documentor.core.analyzer import Analyzer
+from documentor.utils.style import load_style_template, get_style_templates
 
 __version__ = "0.0.0"
 
@@ -103,19 +103,17 @@ def init():
     console.print("[green]Created documentor.yaml successfully![/green]")
 
     # Style.md setup
+    # TODO style md generation with questionnaire
     if getattr(config, "use_style_md", False):
         create_style = handle_cancel(questionary.confirm(f"Do you want to create and initialize {config.style_md_path}?", default=True).ask())
     else:
         create_style = handle_cancel(questionary.confirm("Do you want to create and initialize a style.md file anyway?", default=False).ask())
     if create_style:
-        style_path = getattr(config, "style_md_path", "docs/style.md")
+        style_path = config.style_md_path or os.path.join(config.docs_dir or "docs", "style.md")
         os.makedirs(os.path.dirname(style_path) or ".", exist_ok=True)
 
         # select a template
-        templates_dir = os.path.join(os.path.dirname(__file__), "..", "utils", "style_templates")
-        template_files = [f for f in os.listdir(templates_dir) if f.endswith(".md")]
-
-        choices = [f.replace(".md", "") for f in template_files] + ["empty"]
+        choices = [f.replace(".md", "") for f in get_style_templates()] + ["empty"]
         selected_template = handle_cancel(questionary.select(
             "Choose a style template to initialize with:",
             choices=choices,
@@ -126,9 +124,7 @@ def init():
             if selected_template == "empty":
                 content = "# Documentation Style Guide\n\nAdd your formatting and style instructions here. These will be used by Documentor when generating your docs.\n"
             else:
-                template_path = os.path.join(templates_dir, f"{selected_template}.md")
-                with open(template_path, "r", encoding="utf-8") as f:
-                    content = f.read()
+                content = load_style_template(selected_template)
 
             with open(style_path, "w", encoding="utf-8") as f:
                 f.write(content)
@@ -139,16 +135,16 @@ def init():
     console.print("[blue]Initialization complete! Run `documentor generate` to generate your documentation.[/blue]")
 
 @app.command()
-def generate(target: Optional[str] = typer.Option(None, help="Specific target to generate docs for")):
+def generate():
     """On-demand generation based on documentor.yaml."""
     console.print("[blue]Generating documentation...[/blue]")
     config_manager = ConfigManager()
     config = config_manager.load_config()
 
     parser = Parser(config)
-    context = parser.extract_context(target)
+    context = parser.extract_context()
 
-    generate_docs(context, config, target)
+    generate_docs(context, config)
     console.print("[green]Generation complete![/green]")
 
 @app.command()
