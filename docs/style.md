@@ -1,9 +1,11 @@
-# Style Template: Basic
-## Scope: Personal / Hobby Projects
-**Goal**: Create a single, concise README.md that provides everything a user needs to understand and use a small project without unnecessary complexity.
+# Style Guide
+## Scope: Open Source Project Documentation
+**Goal**: Create a readme file that describes the project and how its installed and used in a concise way. Then include a table of contents describing and linking to other documentation pages.
 
-### 1. Document Structure (Single File)
-- **README.md**: The only file to be generated.
+### 1. Document Structure
+- **readme.md**: The top level readme file that describes installation, usage, and gives a top level overview over other docs.
+- **usage.md**: Detailed descriptions of the CLI API including all commands and options, and extra usage examples
+- **config.md**: A detailed reference for all the config options within the config file and their types, values, defaults, and important considerations.
 
 ### 2. Content Requirements
 - **Project Summary**: 2-3 sentences explaining what the project is and its core value.

@@ -117,10 +117,18 @@ class StateManager:
             hasher.update(item["content"].encode("utf-8"))
         return hasher.hexdigest()
 
-    def update_doc_state(self, doc_path: str, tracking_type: Literal["file", "project"], source_refs: List[str]):
+    def update_doc_state(self, doc_path: str, tracking_type: Optional[Literal["file", "project"]] = None, source_refs: Optional[List[str]] = None):
         """Updates or adds a DocState entry."""
         current_hash = self.get_current_hash(source_refs if tracking_type == "file" else None)
 
+        existing_doc = next((ds for ds in self.state.managed_docs if ds.doc_path == doc_path), None)
+        if existing_doc:
+            tracking_type = existing_doc.tracking_type if tracking_type is None else tracking_type
+            source_refs = existing_doc.source_refs if source_refs is None else source_refs
+        else:
+            tracking_type = tracking_type or "project"
+            source_refs = source_refs or ["."]
+            
         new_doc_state = DocState(
             doc_path=doc_path,
             tracking_type=tracking_type,

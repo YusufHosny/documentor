@@ -2,14 +2,19 @@ provider: vertexai
 model: gemini-3.1-pro-preview
 docs_dir: docs
 include_footer: true
-required_only: true
 use_style_md: true
 style_md_path: docs/style.md
 use_git: true
 required_files:
 - filename: readme.md
   type: Overview
-  description: general description, installation, usage instructions
+  description: general description, installation, overview and links to other docs
+- filename: config.md
+  type: Usage
+  description: configuration file reference and examples
+- filename: usage.md
+  type: Usage
+  description: command line usage and examples
 ignore_above_size_kb: 100
 ignore_patterns:
 - .git

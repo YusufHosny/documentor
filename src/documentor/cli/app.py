@@ -3,9 +3,9 @@ from typing import Optional
 import typer
 from rich.console import Console
 import questionary
-from documentor.core.config import ConfigManager
+from documentor.core.config import Config, ConfigManager
 from documentor.core.state import StateManager
-from documentor.llm.chains import generate_docs, edit_doc, expand_doc, sync_doc
+from documentor.llm.chains import generate_docs, edit_doc, expand_doc, sync_doc, generate_plan, infer_doc_info
 from documentor.core.parser import Parser
 from documentor.core.writer import Writer
 from documentor.utils.style import load_style_template, get_style_templates
@@ -39,6 +39,57 @@ def handle_cancel(val):
     return val
 
 @app.command()
+def plan():
+    """Analyzes the project context and suggests a list of documentation files to be managed."""
+    console.print("[blue]Planning documentation suite...[/blue]")
+    config_manager = ConfigManager()
+    config = config_manager.load_config()
+
+    parser = Parser(config)
+    context = parser.extract_context()
+
+    suggested_files = generate_plan(context, config)
+
+    if not suggested_files:
+        console.print("[yellow]No new documentation files suggested.[/yellow]")
+        return
+
+    console.print("\n[blue]Suggested Documentation Files:[/blue]")
+    for doc in suggested_files:
+        console.print(f"- [cyan]{doc.filename}[/cyan] ({doc.type}): {doc.description}")
+
+    if config.required_files:
+        action = handle_cancel(questionary.select(
+            "You already have required files in your config. What would you like to do?",
+            choices=[
+                questionary.Choice("Merge (add new suggestions to existing list)", value="merge"),
+                questionary.Choice("Overwrite (replace existing list with suggestions)", value="overwrite"),
+                questionary.Choice("Cancel", value="cancel")
+            ]
+        ).ask())
+
+        if action == "cancel":
+            console.print("[yellow]Planning cancelled.[/yellow]")
+            return
+        elif action == "merge":
+            existing_filenames = {f.filename.lower() for f in config.required_files}
+            for doc in suggested_files:
+                if doc.filename.lower() not in existing_filenames:
+                    config.required_files.append(doc)
+        else:
+            config.required_files = suggested_files
+    else:
+        confirm = handle_cancel(questionary.confirm("Do you want to add these suggestions to your required files?", default=True).ask())
+        if confirm:
+            config.required_files = suggested_files
+        else:
+            console.print("[yellow]Planning cancelled.[/yellow]")
+            return
+
+    config_manager.save_config(config)
+    console.print("[green]Updated documentor.yaml with the new documentation plan![/green]")
+
+@app.command()
 def init():
     """Interactive setup to initialize documentor configuration."""
     console.print("[blue]Welcome to Documentor initialization![/blue]")
@@ -67,9 +118,16 @@ def init():
     config_data["use_git"] = handle_cancel(questionary.confirm("Use git-based tracking for incremental updates?", default=True).ask())
 
     # required files setup
-    use_required_files = handle_cancel(questionary.confirm("Do you want to specify some required files now? (will always be generated and managed)", default=False).ask())
-    if use_required_files:
-        required_files = []
+    method = handle_cancel(questionary.select(
+        "How would you like to specify the required doc files?",
+        choices=[
+            questionary.Choice("Manual (enter each file)", value="manual"),
+            questionary.Choice("Auto-generate (AI-assisted plan)", value="auto")
+        ]
+    ).ask())
+
+    required_files = []
+    if method == "manual":
         while True:
             filename = handle_cancel(questionary.text("Enter required filename (or empty to finish):", default="").ask())
             if not filename:
@@ -78,12 +136,19 @@ def init():
             file_type = handle_cancel(questionary.text(f"Enter document type for {filename}:", default="Overview").ask())
             file_description = handle_cancel(questionary.text(f"Enter a short description for {filename}:", default="").ask())
             required_files.append({"filename": filename, "type": file_type, "description": file_description})
-        if required_files:
-            config_data["required_files"] = required_files
-        
-        required_files_only = handle_cancel(questionary.confirm("Only use the required files (won't generate other docs)?", default=True).ask())
-        if required_files_only:
-            config_data["required_only"] = required_files_only
+    else:
+        console.print("[blue]Analyzing project context to generate plan...[/blue]")
+        parser = Parser(Config(**config_data))
+        context = parser.extract_context()
+        required_files = generate_plan(context, Config(**config_data))
+        console.print(f"[green]AI suggested {len(required_files)} files based on project context.[/green]")
+
+    if required_files:
+        config_data["required_files"] = required_files
+
+    required_files_only = handle_cancel(questionary.confirm("Only use the required files (won't generate other docs)?", default=True).ask())
+    if required_files_only:
+        config_data["required_only"] = required_files_only
 
     # style md setup
     config_data["use_style_md"] = handle_cancel(questionary.confirm("Use a style.md file for formatting instructions?", default=True).ask())
@@ -108,13 +173,8 @@ def init():
         ignore_patterns_str = handle_cancel(questionary.text("Enter ignore patterns (comma-separated):", default=".git, __pycache__, venv, .venv, env, node_modules, .env, *.pyc, *.pyo").ask())
         config_data["ignore_patterns"] = [p.strip() for p in ignore_patterns_str.split(",")]
 
-    from documentor.core.config import Config
-    import yaml
-
     config = Config(**config_data)
-
-    with open("documentor.yaml", "w", encoding="utf-8") as f:
-        yaml.dump(config.model_dump(), f, default_flow_style=False, sort_keys=False)
+    config_manager.save_config(config)
 
     console.print("[green]Created documentor.yaml successfully![/green]")
 
@@ -149,25 +209,40 @@ def init():
     console.print("[blue]Initialization complete! Run `documentor generate` to generate your documentation.[/blue]")
 
 @app.command()
-def generate():
+def generate(force_regenerate: bool = typer.Option(False, "--force", "-f", help="Force regeneration of all documentation, ignoring tracking state")):
     """On-demand generation based on documentor.yaml."""
-    console.print("[blue]Generating documentation...[/blue]")
     config_manager = ConfigManager()
     config = config_manager.load_config()
 
+    if not config.required_files:
+        console.print("[yellow]No documentation files defined in documentor.yaml.[/yellow]")
+        console.print("[blue]Try running `documentor plan` to automatically suggest documentation files.[/blue]")
+        return
+
     parser = Parser(config)
     context = parser.extract_context()
-
-    generated_files = generate_docs(context, config)
-
     state_manager = StateManager(config)
+
+    docs_to_generate = []
+    if force_regenerate:
+        docs_to_generate = config.required_files
+        console.print("[blue]Force regenerating all documentation...[/blue]")
+    else:
+        stale_docs = {ds.doc_path for ds in state_manager.get_stale_docs()}
+        for doc in config.required_files:
+            doc_path = os.path.join(config.docs_dir, doc.filename)
+            if not os.path.exists(doc_path) or doc_path in stale_docs:
+                docs_to_generate.append(doc)
+
+    if not docs_to_generate:
+        console.print("[green]All documentation is up to date![/green]")
+        return
+
+    console.print(f"[blue]Generating {len(docs_to_generate)} documentation files...[/blue]")
+    generated_files = generate_docs(context, config, docs_to_generate)
+
     for file_path in generated_files:
-        # TODO: generate_docs uses the whole context for each file, make it map specific files to specific docs
-        state_manager.update_doc_state(
-            doc_path=file_path,
-            tracking_type="project",
-            source_refs=["."]
-        )
+        state_manager.update_doc_state(doc_path=file_path)
 
     console.print("[green]Generation complete![/green]")
 
@@ -193,17 +268,13 @@ def edit(target_file: str):
     final_path = writer.write(target_file, new_content)
 
     state_manager = StateManager(config)
-    state_manager.update_doc_state(
-        doc_path=final_path,
-        tracking_type="project",
-        source_refs=["."]
-    )
+    state_manager.update_doc_state(doc_path=final_path)
 
     console.print(f"[green]Successfully edited {target_file}![/green]")
 
 @app.command()
-def expand(target_file: str, doc_type: str = typer.Option("functional", "--type", "-t", help="Type of document (functional, decision, etc.)")):
-    """Turns scrappy bullet points into a coherent, well-formatted document."""
+def expand(target_file: str):
+    """Turns scrappy bullet points into a coherent, well-formatted document using AI inference for metadata."""
     console.print(f"[blue]Expanding {target_file}...[/blue]")
     config_manager = ConfigManager()
     config = config_manager.load_config()
@@ -212,20 +283,31 @@ def expand(target_file: str, doc_type: str = typer.Option("functional", "--type"
         console.print(f"[red]Error: {target_file} not found.[/red]")
         raise typer.Exit(1)
 
+    parser = Parser(config)
+    context = parser.extract_context()
+
+    filename = os.path.basename(target_file)
+    doc_info = infer_doc_info(filename, context, config)
+
+    console.print(f"[blue]Inferred Type: {doc_info.type}[/blue]")
+    console.print(f"[blue]Inferred Description: {doc_info.description}[/blue]")
+
     with open(target_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    new_content = expand_doc(content, doc_type, config)
+    new_content = expand_doc(content, doc_info.type, config)
 
     writer = Writer(config)
     final_path = writer.write(target_file, new_content)
 
+    # update config if not already there
+    existing_filenames = {f.filename.lower() for f in config.required_files}
+    if filename.lower() not in existing_filenames and target_file.lower() not in existing_filenames:
+        config.required_files.append(doc_info)
+        config_manager.save_config(config)
+
     state_manager = StateManager(config)
-    state_manager.update_doc_state(
-        doc_path=final_path,
-        tracking_type="project",
-        source_refs=["."]
-    )
+    state_manager.update_doc_state(doc_path=final_path)
 
     console.print(f"[green]Successfully expanded {target_file}![/green]")
 

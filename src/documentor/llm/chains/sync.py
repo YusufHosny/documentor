@@ -11,7 +11,8 @@ def sync_doc(current_content: str, context: List[Dict[str, str]], config: Config
     prompt_messages = [
         ("system", "You are an expert technical writer. You are updating an existing markdown document because the underlying source code has changed."),
         ("system", "Your goal is to synchronize the document with the new source code state. Maintain the existing structure and style, but update any descriptions, examples, or references that are no longer accurate."),
-        ("system", "Output ONLY the updated markdown content, without any extra conversation or markdown formatting ticks.")
+        ("system", "Output ONLY the updated markdown content, without any extra conversation or markdown formatting ticks."),
+        ("system", "This is the style guide to follow:\n{style_guide}")
     ]
 
     if diff:
@@ -27,7 +28,8 @@ def sync_doc(current_content: str, context: List[Dict[str, str]], config: Config
 
     inputs = {
         "current_content": current_content,
-        "context": context_str
+        "context": context_str,
+        "style_guide": config.get_style_guide()
     }
     if diff:
         inputs["diff"] = diff

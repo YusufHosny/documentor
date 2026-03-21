@@ -3,18 +3,25 @@ from typing import Literal, List, Dict, Optional
 import yaml
 from pydantic import BaseModel, Field
 
+class DocItem(BaseModel):
+    filename: str = Field(description="The desired markdown filename (e.g., 'API.md')")
+    description: str = Field(description="A brief description of the document's purpose or focus")
+    type: str = Field(description="The category of documentation (e.g., 'Functional', 'API Reference')")
+
+class DocList(BaseModel):
+    files: List[DocItem] = Field(description="List of documentation files to generate")
+
 class Config(BaseModel):
     provider: Literal['openai', 'vertexai', 'ollama'] = Field(default="vertexai", description="LLM provider")
     model: str = Field(default="gemini-3.1-pro-preview", description="Model name")
 
     docs_dir: str = Field(default="docs", description="Output directory for generated documentation")
     include_footer: bool = Field(default=False, description="Append footer to generated markdown")
-    
-    required_only: bool = Field(default=False, description="Whether to use the given required files only or analyze project context and generate a plan and filelist before generating docs")
+
     use_style_md: bool = Field(default=False, description="Whether to use the style.md file for formatting instructions when generating docs")
     style_md_path: str = Field(default="docs/style.md", description="Path to style.md file for formatting instructions")
     use_git: bool = Field(default=True, description="Whether to use git-based tracking for incremental updates")
-    required_files: List[Dict[str, str]] = Field(
+    required_files: List[DocItem] = Field(
         default=[],
         description="Files that must be included in the documentation suite"
     )
@@ -64,3 +71,8 @@ class ConfigManager:
         """Deletes the existing configuration file."""
         if self.config_exists():
             os.remove(self.config_file)
+
+    def save_config(self, config: Config):
+        """Saves the given configuration to file."""
+        with open(self.config_file, "w", encoding="utf-8") as f:
+            yaml.dump(config.model_dump(), f, default_flow_style=False, sort_keys=False)
