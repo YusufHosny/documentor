@@ -4,8 +4,8 @@ import yaml
 from pydantic import BaseModel, Field
 
 class Config(BaseModel):
-    provider: Literal['openai', 'vertexai', 'ollama'] = Field(default="vertexai", description="LLM provider", )
-    model: str = Field(default="gemini-3.1-pro", description="Model name")
+    provider: Literal['openai', 'vertexai', 'ollama'] = Field(default="vertexai", description="LLM provider")
+    model: str = Field(default="gemini-3.1-pro-preview", description="Model name")
 
     docs_dir: str = Field(default="docs", description="Output directory for generated documentation")
     include_footer: bool = Field(default=False, description="Append footer to generated markdown")
@@ -13,6 +13,7 @@ class Config(BaseModel):
     required_only: bool = Field(default=False, description="Whether to use the given required files only or analyze project context and generate a plan and filelist before generating docs")
     use_style_md: bool = Field(default=False, description="Whether to use the style.md file for formatting instructions when generating docs")
     style_md_path: str = Field(default="docs/style.md", description="Path to style.md file for formatting instructions")
+    use_git: bool = Field(default=True, description="Whether to use git-based tracking for incremental updates")
     required_files: List[Dict[str, str]] = Field(
         default=[],
         description="Files that must be included in the documentation suite"
@@ -20,7 +21,7 @@ class Config(BaseModel):
 
     ignore_above_size_kb: int = Field(default=100, description="Ignore files above this size (in KB) when extracting context")
     ignore_patterns: List[str] = Field(
-        default=[".git", "__pycache__", "venv", ".venv", "env", "node_modules", ".env", "*.pyc", "*.pyo"],
+        default=[".git", "__pycache__", "venv", ".venv", "env", "node_modules", ".env", "*.pyc", "*.pyo", "documentor.yaml", "documentor-lock.yaml"],
         description="Patterns to ignore when scanning project"
     )
     #TODO: semantically ignore files with llm/vectorsearch
@@ -47,10 +48,19 @@ class ConfigManager:
 
     def load_config(self) -> Config:
         """Loads configuration from file, falling back to defaults if not found."""
-        if not os.path.exists(self.config_file):
+        if not self.config_exists():
             return Config()
 
         with open(self.config_file, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
 
         return Config(**data)
+    
+    def config_exists(self) -> bool:
+        """Checks if the configuration file already exists."""
+        return os.path.exists(self.config_file)
+    
+    def clear_config(self):
+        """Deletes the existing configuration file."""
+        if self.config_exists():
+            os.remove(self.config_file)

@@ -7,8 +7,9 @@ from documentor.llm.client import get_llm
 from documentor.core.writer import Writer
 
 class DocItem(BaseModel):
-    type: str = Field(description="The category of documentation (e.g., 'Functional', 'API Reference')")
     filename: str = Field(description="The desired markdown filename (e.g., 'API.md')")
+    description: str = Field(description="A brief description of the document's purpose or focus")
+    type: str = Field(description="The category of documentation (e.g., 'Functional', 'API Reference')")
 
 class DocList(BaseModel):
     files: List[DocItem] = Field(description="List of documentation files to generate")
@@ -42,7 +43,7 @@ def _generate_doc_list(context: List[Dict[str, str]], config: Config) -> List[Di
 
         required_filenames = {f["filename"].lower() for f in config.required_files}
         pruned_files = [
-            { "filename": f.filename, "type": f.type } for f in response.files
+            { "filename": f.filename, "type": f.type, "description": f.description } for f in response.files
             if f.filename.lower() not in required_filenames
         ]
 
@@ -51,22 +52,23 @@ def _generate_doc_list(context: List[Dict[str, str]], config: Config) -> List[Di
         return []
 
 
-def generate_docs(context: List[Dict[str, str]], config: Config):
-    """Generates initial documentation from scratch based on context."""
+def generate_docs(context: List[Dict[str, str]], config: Config) -> List[str]:
+    """Generates initial documentation from scratch based on context. Returns list of generated filenames."""
     llm = get_llm(config)
 
     docs_to_generate = [
         *config.required_files,
         *_generate_doc_list(context, config)
     ]
-    
+
     writer = Writer(config)
+    generated_files = []
 
     for doc in docs_to_generate:
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are an expert technical writer. Create a comprehensive, well-structured markdown document of type: {doc_type}. Use the provided context as your source of truth."),
+            ("system", "You are an expert technical writer. Create a comprehensive, well-structured markdown document. Use the provided context as your source of truth."),
             ("system", "Here is the documentation style guide:\n{style_guide}"),
-            ("user", "Here is the project context:\n{context}\n\nPlease generate the {filename} file.")
+            ("user", "Here is the project context:\n{context}\n\nPlease generate the {filename} file with the following type {doc_type} and description: {description}")
         ])
 
         chain = prompt | llm | StrOutputParser()
@@ -74,10 +76,14 @@ def generate_docs(context: List[Dict[str, str]], config: Config):
         context_str = "\n\n".join([f"--- File: {f['path']} ---\n{f['content']}" for f in context])
 
         content = chain.invoke({
-            "doc_type": doc["type"],
             "style_guide": config.get_style_guide(),
             "context": context_str,
-            "filename": doc["filename"]
+            "filename": doc["filename"],
+            "doc_type": doc["type"],
+            "description": doc["description"]
         })
 
-        writer.write(doc["filename"], content)
+        final_path = writer.write(doc["filename"], content)
+        generated_files.append(final_path)
+
+    return generated_files

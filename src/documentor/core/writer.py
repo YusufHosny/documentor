@@ -15,12 +15,15 @@ class Writer:
 
         target_dir = os.path.dirname(target_file) or ""
         config_docs_dir = self.config.docs_dir or "docs"
-        if (
-            not target_file.lower().endswith("readme.md")  # keep README.md at root
-            and not target_dir.lower().startswith(config_docs_dir) 
-        ):
-            target_dir = os.path.join(config_docs_dir, target_dir)
-            os.makedirs(target_dir, exist_ok=True)
 
-        with open(target_file, "w", encoding="utf-8") as f:
+        final_path = target_file
+        if (
+            not target_file.lower().endswith("readme.md")  # keep readmes at root
+            and not target_dir.lower().startswith(config_docs_dir.lower())
+        ):
+            final_path = os.path.join(config_docs_dir, target_file)
+            os.makedirs(os.path.dirname(final_path), exist_ok=True)
+
+        with open(final_path, "w", encoding="utf-8") as f:
             f.write(content)
+        return final_path

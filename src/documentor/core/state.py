@@ -1,0 +1,159 @@
+import os
+import hashlib
+import subprocess
+from datetime import datetime
+from typing import List, Optional, Literal
+import yaml
+from pydantic import BaseModel, Field
+
+from documentor.core.config import Config
+
+class DocState(BaseModel):
+    doc_path: str
+    tracking_type: Literal["file", "project"]
+    source_refs: List[str]
+    last_source_hash: str
+    updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+class ProjectState(BaseModel):
+    last_project_hash: str
+    managed_docs: List[DocState] = []
+
+class StateManager:
+    def __init__(self, config: Config):
+        self.config = config
+        self.lock_file = "documentor-lock.yaml"
+        self.state = self.load_state()
+
+    def load_state(self) -> ProjectState:
+        """Loads state from the lockfile, returns empty state if not found."""
+        if self.statefile_exists():
+            try:
+                with open(self.lock_file, "r", encoding="utf-8") as f:
+                    data = yaml.full_load(f) or {}
+                return ProjectState(**data)
+            except Exception:
+                pass
+        return ProjectState(last_project_hash="")
+
+    def save_state(self):
+        """Saves current state to the lockfile."""
+        with open(self.lock_file, "w", encoding="utf-8") as f:
+            yaml.dump(self.state.model_dump(), f, default_flow_style=False, sort_keys=False)
+
+    def get_current_hash(self, paths: Optional[List[str]] = None) -> str:
+        """Computes current hash for given paths or the entire project."""
+        if paths:
+            return self._hash_files(paths)
+
+        if self.config.use_git:
+            try:
+                result = subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                head_sha = result.stdout.strip()
+
+                status_result = subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                uncommitted_changes = status_result.stdout.strip()
+                if not uncommitted_changes:
+                    return head_sha
+
+                # tracked changes (staged and unstaged)
+                diff_result = subprocess.run(
+                    ["git", "diff", "HEAD", "--", ".", ":!documentor.yaml", ":!documentor-lock.yaml"],
+                    capture_output=True,
+                    check=True
+                )
+
+                # untracked files
+                untracked_result = subprocess.run(
+                    ["git", "ls-files", "--others", "--exclude-standard", "--", ".", ":!documentor.yaml", ":!documentor-lock.yaml"],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                untracked_files = untracked_result.stdout.strip().splitlines()
+                untracked_hash = self._hash_files(untracked_files) if untracked_files else ""
+
+                combined_payload = diff_result.stdout + untracked_hash.encode()
+                diff_hash = hashlib.md5(combined_payload).hexdigest()
+
+                head_sha_with_dirty = f"{head_sha}-dirty-{diff_hash}"
+                return head_sha_with_dirty
+
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                raise RuntimeError("Git is not available or this is not a git repository. Cannot compute project hash.")
+
+        return self._hash_project()
+
+    def _hash_files(self, paths: List[str]) -> str:
+        """Computes MD5 hash of a list of files."""
+        hasher = hashlib.md5()
+        for path in sorted(paths):
+            if os.path.exists(path) and os.path.isfile(path):
+                with open(path, "rb") as f:
+                    while chunk := f.read(8192):
+                        hasher.update(chunk)
+        return hasher.hexdigest()
+
+    def _hash_project(self) -> str:
+        """Computes MD5 hash of the entire project directory (respecting ignores)."""
+        hasher = hashlib.md5()
+        from documentor.core.parser import Parser
+        parser = Parser(self.config)
+        context = parser.extract_context()
+
+        # sorting for consistent hash
+        for item in sorted(context, key=lambda x: x["path"]):
+            hasher.update(item["path"].encode("utf-8"))
+            hasher.update(item["content"].encode("utf-8"))
+        return hasher.hexdigest()
+
+    def update_doc_state(self, doc_path: str, tracking_type: Literal["file", "project"], source_refs: List[str]):
+        """Updates or adds a DocState entry."""
+        current_hash = self.get_current_hash(source_refs if tracking_type == "file" else None)
+
+        new_doc_state = DocState(
+            doc_path=doc_path,
+            tracking_type=tracking_type,
+            source_refs=source_refs,
+            last_source_hash=current_hash,
+            updated_at=datetime.now().isoformat()
+        )
+
+        for i, ds in enumerate(self.state.managed_docs):
+            if ds.doc_path == doc_path:
+                self.state.managed_docs[i] = new_doc_state
+                break
+        else:
+            self.state.managed_docs.append(new_doc_state)
+
+        self.state.last_project_hash = self.get_current_hash()
+        self.save_state()
+
+    def get_stale_docs(self) -> List[DocState]:
+        """Returns a list of DocState objects that are out of sync with their sources."""
+        stale = []
+        for ds in self.state.managed_docs:
+            current_hash = self.get_current_hash(ds.source_refs if ds.tracking_type == "file" else None)
+            print(f"current hash and prev hash for {ds.doc_path}\n{current_hash}\n{ds.last_source_hash}")
+            if current_hash != ds.last_source_hash:
+                stale.append(ds)
+        return stale
+
+    def statefile_exists(self) -> bool:
+        """Checks if the state lockfile exists."""
+        return os.path.exists(self.lock_file)
+    
+    def clear_statefile(self):
+        """Deletes the existing state lockfile."""
+        if self.statefile_exists():
+            os.remove(self.lock_file)
