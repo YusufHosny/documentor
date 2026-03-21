@@ -1,6 +1,6 @@
 # Documentor Configuration Reference
 
-Documentor uses a `documentor.yaml` file located in the root of your project to control how documentation is generated, formatted, and tracked. You can generate this file interactively using the `documentor init` command or create and modify it manually.
+Documentor uses a `documentor.yaml` file located in the root of your project to control how documentation is generated, formatted, and tracked. You can generate this file interactively using the `documentor init` command, update it automatically using `documentor plan`, or create and modify it manually.
 
 Below is a detailed reference of all available options in `documentor.yaml`.
 
@@ -29,7 +29,7 @@ Control where and how the generated markdown files are saved.
 * **`docs_dir`**
   * **Type:** String
   * **Default:** `"docs"`
-  * **Description:** The output directory where generated documentation is saved. *Note: Documentor always places `README.md` files in the project root, regardless of this setting.*
+  * **Description:** The output directory where generated documentation is saved. *Note: Documentor always places `docs/readme.md` files in the project root, regardless of this setting.*
 * **`include_footer`**
   * **Type:** Boolean
   * **Default:** `false`
@@ -72,10 +72,10 @@ Define the exact documentation files Documentor should create and maintain.
 * **`required_files`**
   * **Type:** List of Objects
   * **Default:** `[]`
-  * **Description:** A list of specific documents that must be generated and managed. 
+  * **Description:** A list of specific documents that must be generated and managed. *Note: You can automatically populate this list based on your project context using the `documentor plan` command.*
 
 Each object in the `required_files` list requires the following keys:
-- **`filename`** *(String)*: The output filename (e.g., `API.md` or `README.md`).
+- **`filename`** *(String)*: The output filename (e.g., `API.md` or `docs/readme.md`).
 - **`type`** *(String)*: The category of the document (e.g., `Overview`, `Technical`, `Usage`). This helps the LLM understand the intended audience and format.
 - **`description`** *(String)*: A brief description defining exactly what the AI should cover in this specific file.
 
@@ -83,7 +83,7 @@ Each object in the `required_files` list requires the following keys:
 
 ## Example `documentor.yaml`
 
-Here is a standard configuration that uses OpenAI, enforces a style guide, ignores a custom `tests` directory, and strictly requires a `README.md` and an `architecture.md` file.
+Here is a standard configuration that uses OpenAI, enforces a style guide, ignores a custom `tests` directory, and strictly requires a `docs/readme.md` and an `architecture.md` file.
 
 ```yaml
 provider: "openai"
@@ -100,7 +100,7 @@ ignore_patterns:
   - "tests/fixtures/**"
   - "*.tmp"
 required_files:
-  - filename: "README.md"
+  - filename: "docs/readme.md"
     type: "overview"
     description: "High-level project overview, installation steps, and quickstart usage examples."
   - filename: "architecture.md"

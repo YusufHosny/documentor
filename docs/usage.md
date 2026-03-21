@@ -11,7 +11,7 @@ Documentor provides a straightforward command-line interface to initialize, gene
 ## Commands
 
 ### `init`
-Starts an interactive wizard to set up Documentor in your project. It walks you through selecting your LLM provider, setting output directories, defining file ignore patterns, and choosing a style template.
+Starts an interactive wizard to set up Documentor in your project. It walks you through selecting your LLM provider, setting output directories, defining file ignore patterns, specifying required files (manually or via AI auto-generation), and choosing a style template.
 
 ```bash
 documentor init
@@ -35,7 +35,7 @@ documentor generate
 **Options:**
 * `-f, --force`: Force regeneration of all documentation files, ignoring the current tracking state.
 
-**Result:** Generates markdown files in your configured output directory and creates a `documentor-lock.yaml` file to track the current state of your code.
+**Result:** Generates markdown files in your configured output directory and creates or updates a `documentor-lock.yaml` file to track the current state of your code.
 
 ### `sync`
 Detects changes in your source code since the last generation and selectively updates only the documentation files that have become stale. 
@@ -55,7 +55,7 @@ documentor edit <target_file>
 * `target_file`: The path to the markdown file you want to edit (e.g., `docs/API.md`).
 
 ### `expand`
-Transforms rough bullet points or scratchpad notes into a fully formatted, professional markdown document. Documentor automatically infers the intended document type, creates the file, and adds it to your `documentor.yaml` tracking list.
+Transforms rough bullet points or scratchpad notes into a fully formatted, professional markdown document. Documentor automatically infers the intended document type and description from your project context, creates the file, and adds it to your `documentor.yaml` tracking list.
 
 ```bash
 documentor expand <target_file>
@@ -68,22 +68,19 @@ documentor expand <target_file>
 ## Example Workflows
 
 ### The Happy Path: Setting Up a New Project
-The fastest way to get value out of Documentor is to initialize it, plan your docs, generate them, and keep them synced as you write code.
+The fastest way to get value out of Documentor is to initialize it, generate your docs, and keep them synced as you write code.
 
 ```bash
-# 1. Run the interactive setup and answer the prompts
+# 1. Run the interactive setup and let the AI plan your required docs
 documentor init
 
-# 2. Let the AI suggest which docs your project needs
-documentor plan
-
-# 3. Generate the initial documentation suite
+# 2. Generate the initial documentation suite
 documentor generate
 
-# 4. Write new code, commit changes
+# 3. Write new code, commit changes
 git commit -m "feat: add new payment gateway"
 
-# 5. Bring your docs up to date with your new code
+# 4. Bring your docs up to date with your new code
 documentor sync
 ```
 
@@ -99,7 +96,7 @@ documentor expand docs/draft-notes.md
 If a generated document isn't quite right, you don't need to rewrite it manually or regenerate the whole project. Use the `edit` command to give the AI specific feedback.
 
 ```bash
-documentor edit README.md
+documentor edit docs/readme.md
 # The CLI will prompt you:
 # Please enter your comments for the AI: 
 # > "Add a section explaining how to run the test suite."
