@@ -15,7 +15,7 @@ def sync_doc(current_content: str, context: List[Dict[str, str]], config: Config
     ]
 
     if diff:
-        prompt_messages.append(("system", f"The following changes were detected in the source code:\n{diff}"))
+        prompt_messages.append(("system", "The following changes were detected in the source code:\n{diff}"))
 
     prompt_messages.append(("user", "Current Document Content:\n{current_content}\n\nNew Project Context:\n{context}\n\nPlease provide the updated document."))
 
@@ -25,7 +25,11 @@ def sync_doc(current_content: str, context: List[Dict[str, str]], config: Config
 
     context_str = "\n\n".join([f"--- File: {f['path']} ---\n{f['content']}" for f in context])
 
-    return chain.invoke({
+    inputs = {
         "current_content": current_content,
         "context": context_str
-    })
+    }
+    if diff:
+        inputs["diff"] = diff
+
+    return chain.invoke(inputs)

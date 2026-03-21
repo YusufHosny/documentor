@@ -10,7 +10,7 @@
 - **Features**: A short bulleted list of the main capabilities.
 - **Installation**: Minimal steps to get the project running locally.
 - **Usage**: Clear, brief examples (code snippets or CLI commands) of how to use the project.
-- **Results/Screenshots**: (Optional placeholder) A section to describe or show what the project achieves.
+- **Config Format**: A detailed explanation of the structure of the config file and all options and effects.
 
 ### 3. Style and Tone
 - **Conciseness is Key**: Avoid deep dives into architecture, design patterns, or internal logic.

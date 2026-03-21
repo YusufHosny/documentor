@@ -144,7 +144,6 @@ class StateManager:
         stale = []
         for ds in self.state.managed_docs:
             current_hash = self.get_current_hash(ds.source_refs if ds.tracking_type == "file" else None)
-            print(f"current hash and prev hash for {ds.doc_path}\n{current_hash}\n{ds.last_source_hash}")
             if current_hash != ds.last_source_hash:
                 stale.append(ds)
         return stale
