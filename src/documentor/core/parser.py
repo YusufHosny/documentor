@@ -10,7 +10,7 @@ class Parser:
 
     def _build_ignore_spec(self) -> pathspec.PathSpec:
         """Builds a pathspec from config and .gitignore if present."""
-        patterns = self.config.ignore_patterns.copy()
+        patterns = self.config.ignore_patterns.copy() + ["documentor.yaml", "documentor-lock.yaml"]
 
         if os.path.exists(".gitignore"):
             with open(".gitignore", "r", encoding="utf-8") as f:

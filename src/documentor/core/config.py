@@ -21,7 +21,7 @@ class Config(BaseModel):
 
     ignore_above_size_kb: int = Field(default=100, description="Ignore files above this size (in KB) when extracting context")
     ignore_patterns: List[str] = Field(
-        default=[".git", "__pycache__", "venv", ".venv", "env", "node_modules", ".env", "*.pyc", "*.pyo", "documentor.yaml", "documentor-lock.yaml"],
+        default=[".git", "__pycache__", "venv", ".venv", "env", "node_modules", ".env", "*.pyc", "*.pyo"],
         description="Patterns to ignore when scanning project"
     )
     #TODO: semantically ignore files with llm/vectorsearch
