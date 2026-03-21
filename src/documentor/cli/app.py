@@ -10,7 +10,7 @@ from documentor.core.parser import Parser
 from documentor.core.writer import Writer
 from documentor.utils.style import load_style_template, get_style_templates
 
-__version__ = "0.0.0"
+__version__ = "1.0.0"
 
 app = typer.Typer(help="Documentor: A CLI tool for automatic documentation generation and management")
 console = Console()
