@@ -6,6 +6,9 @@ import questionary
 from documentor.core.config import Config, ConfigManager
 from documentor.core.state import StateManager
 from documentor.llm.chains import generate_docs, edit_doc, expand_doc, sync_doc, generate_plan, infer_doc_info
+from documentor.llm.chains.agent import (
+    agent_generate_docs, agent_edit_doc, agent_expand_doc, agent_sync_doc, agent_generate_plan, agent_infer_doc_info
+)
 from documentor.core.parser import Parser
 from documentor.core.writer import Writer
 from documentor.utils.style import load_style_template, get_style_templates
@@ -38,6 +41,18 @@ def handle_cancel(val):
         raise typer.Exit(1)
     return val
 
+def should_use_agent(config: Config, parser: Parser) -> bool:
+    """Centralized logic to decide if agent mode should be used."""
+    if config.use_agent:
+        return True
+
+    total_size = parser.get_total_context_size_kb()
+    if total_size > config.agent_threshold_kb:
+        console.print(f"[yellow]Project size ({total_size}KB) exceeds agent threshold ({config.agent_threshold_kb}KB). Switching to agent mode.[/yellow]")
+        return True
+
+    return False
+
 @app.command()
 def plan():
     """Analyzes the project context and suggests a list of documentation files to be managed."""
@@ -46,9 +61,12 @@ def plan():
     config = config_manager.load_config()
 
     parser = Parser(config)
-    context = parser.extract_context()
 
-    suggested_files = generate_plan(context, config)
+    if should_use_agent(config, parser):
+        suggested_files = agent_generate_plan(config)
+    else:
+        context = parser.extract_context()
+        suggested_files = generate_plan(context, config)
 
     if not suggested_files:
         console.print("[yellow]No new documentation files suggested.[/yellow]")
@@ -173,6 +191,12 @@ def init():
         ignore_patterns_str = handle_cancel(questionary.text("Enter ignore patterns (comma-separated):", default=".git, __pycache__, venv, .venv, env, node_modules, .env, *.pyc, *.pyo").ask())
         config_data["ignore_patterns"] = [p.strip() for p in ignore_patterns_str.split(",")]
 
+    # agent setup
+    config_data["use_agent"] = handle_cancel(questionary.confirm("Enable agent-based dynamic context extraction for large projects?", default=False).ask())
+    if config_data["use_agent"]:
+        threshold_str = handle_cancel(questionary.text("Threshold for automatic agent mode (KB):", default="1000").ask())
+        config_data["agent_threshold_kb"] = int(threshold_str) if threshold_str.isdigit() else 1000
+
     config = Config(**config_data)
     config_manager.save_config(config)
 
@@ -220,7 +244,6 @@ def generate(force_regenerate: bool = typer.Option(False, "--force", "-f", help=
         return
 
     parser = Parser(config)
-    context = parser.extract_context()
     state_manager = StateManager(config)
 
     docs_to_generate = []
@@ -238,13 +261,19 @@ def generate(force_regenerate: bool = typer.Option(False, "--force", "-f", help=
         console.print("[green]All documentation is up to date![/green]")
         return
 
-    console.print(f"[blue]Generating {len(docs_to_generate)} documentation files...[/blue]")
-    generated_files = generate_docs(context, config, docs_to_generate)
+    if should_use_agent(config, parser):
+        console.print(f"[blue]Generating {len(docs_to_generate)} documentation files using agent mode...[/blue]")
+        generated_files = agent_generate_docs(config, docs_to_generate)
+    else:
+        console.print(f"[blue]Generating {len(docs_to_generate)} documentation files...[/blue]")
+        context = parser.extract_context()
+        generated_files = generate_docs(context, config, docs_to_generate)
 
     for file_path in generated_files:
         state_manager.update_doc_state(doc_path=file_path)
 
     console.print("[green]Generation complete![/green]")
+
 
 @app.command()
 def edit(target_file: str):
@@ -262,7 +291,11 @@ def edit(target_file: str):
     with open(target_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    new_content = edit_doc(content, comments, config)
+    parser = Parser(config)
+    if should_use_agent(config, parser):
+        new_content = agent_edit_doc(content, comments, config)
+    else:
+        new_content = edit_doc(content, comments, config)
 
     writer = Writer(config)
     final_path = writer.write(target_file, new_content)
@@ -284,10 +317,13 @@ def expand(target_file: str):
         raise typer.Exit(1)
 
     parser = Parser(config)
-    context = parser.extract_context()
-
     filename = os.path.basename(target_file)
-    doc_info = infer_doc_info(filename, context, config)
+
+    if should_use_agent(config, parser):
+        doc_info = agent_infer_doc_info(filename, config)
+    else:
+        context = parser.extract_context()
+        doc_info = infer_doc_info(filename, context, config)
 
     console.print(f"[blue]Inferred Type: {doc_info.type}[/blue]")
     console.print(f"[blue]Inferred Description: {doc_info.description}[/blue]")
@@ -295,7 +331,10 @@ def expand(target_file: str):
     with open(target_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    new_content = expand_doc(content, doc_info.type, config)
+    if should_use_agent(config, parser):
+        new_content = agent_expand_doc(content, doc_info.type, config)
+    else:
+        new_content = expand_doc(content, doc_info.type, config)
 
     writer = Writer(config)
     final_path = writer.write(target_file, new_content)
@@ -328,7 +367,7 @@ def sync():
     console.print(f"[yellow]Found {len(stale_docs)} stale documents. Syncing...[/yellow]")
 
     parser = Parser(config)
-    context = parser.extract_context()
+    use_agent = should_use_agent(config, parser)
     writer = Writer(config)
 
     for ds in stale_docs:
@@ -357,7 +396,12 @@ def sync():
             except Exception:
                 pass
 
-        new_content = sync_doc(current_content, context, config, diff)
+        if use_agent:
+            new_content = agent_sync_doc(current_content, config, diff)
+        else:
+            context = parser.extract_context()
+            new_content = sync_doc(current_content, context, config, diff)
+
         final_path = writer.write(ds.doc_path, new_content)
 
         state_manager.update_doc_state(

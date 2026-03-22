@@ -16,6 +16,8 @@ required_files:
   type: Usage
   description: command line usage and examples
 ignore_above_size_kb: 100
+use_agent: true
+agent_threshold_kb: 1
 ignore_patterns:
 - .git
 - __pycache__

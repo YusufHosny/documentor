@@ -25,7 +25,7 @@ class Parser:
 
         if os.path.isfile(base_dir):
             if not self.ignore_spec.match_file(base_dir):
-                content = self._read_file(base_dir)
+                content = self.read_file(base_dir)
                 if content:
                     context.append({"path": base_dir, "content": content})
             return context
@@ -43,13 +43,66 @@ class Parser:
                 not_ignored = not self.ignore_spec.match_file(rel_path)
                 not_too_large = os.path.getsize(file_path) <= self.config.ignore_above_size_kb * 1024
                 if not_ignored and not_too_large:
-                    content = self._read_file(file_path)
+                    content = self.read_file(file_path)
                     if content is not None:
                         context.append({"path": rel_path, "content": content})
 
         return context
 
-    def _read_file(self, file_path: str) -> Optional[str]:
+    def get_total_context_size_kb(self, target: Optional[str] = None) -> int:
+        """Calculates total size of all non-ignored files in KB."""
+        total_size_bytes = 0
+        base_dir = "." if target is None else str(target)
+
+        if os.path.isfile(base_dir):
+            if not self.ignore_spec.match_file(base_dir):
+                total_size_bytes += os.path.getsize(base_dir)
+            return total_size_bytes // 1024
+
+        for root, dirs, files in os.walk(base_dir):
+            dirs[:] = [
+                d for d in dirs
+                if not self.ignore_spec.match_file(os.path.relpath(os.path.join(root, d), base_dir))
+            ]
+
+            for file in files:
+                file_path = os.path.join(root, file)
+                rel_path = os.path.relpath(file_path, base_dir)
+
+                if not self.ignore_spec.match_file(rel_path):
+                    try:
+                        total_size_bytes += os.path.getsize(file_path)
+                    except OSError:
+                        pass
+
+        return total_size_bytes // 1024
+
+    def list_files_for_agent(self, target: Optional[str] = None) -> List[str]:
+        """Lists all non-ignored file paths for agent exploration."""
+        file_list = []
+        base_dir = "." if target is None else str(target)
+
+        if os.path.isfile(base_dir):
+            if not self.ignore_spec.match_file(base_dir):
+                file_list.append(base_dir)
+            return file_list
+
+        for root, dirs, files in os.walk(base_dir):
+            dirs[:] = [
+                d for d in dirs
+                if not self.ignore_spec.match_file(os.path.relpath(os.path.join(root, d), base_dir))
+            ]
+
+            for file in files:
+                file_path = os.path.join(root, file)
+                rel_path = os.path.relpath(file_path, base_dir)
+
+                if not self.ignore_spec.match_file(rel_path):
+                    file_list.append(rel_path)
+
+        return file_list
+
+    def read_file(self, file_path: str) -> Optional[str]:
         """Reads a file, returning None if binary or unreadable."""
         try:
             with open(file_path, "r", encoding="utf-8") as f:

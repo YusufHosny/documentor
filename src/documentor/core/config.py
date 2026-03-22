@@ -31,6 +31,9 @@ class Config(BaseModel):
         default=[".git", "__pycache__", "venv", ".venv", "env", "node_modules", ".env", "*.pyc", "*.pyo"],
         description="Patterns to ignore when scanning project"
     )
+
+    use_agent: bool = Field(default=False, description="Enable agent-based dynamic context extraction")
+    agent_threshold_kb: int = Field(default=1000, description="Threshold in KB above which agent mode is automatically used")
     #TODO: semantically ignore files with llm/vectorsearch
 
     # -------------------------- config helpers --------------------------
