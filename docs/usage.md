@@ -8,18 +8,26 @@ Documentor provides a straightforward command-line interface to initialize, gene
 
 ---
 
+## Agent Mode (Large Context Handling)
+
+Documentor automatically detects when your project's context size exceeds a configurable threshold (default: `1000 KB`). When this happens, core commands (`plan`, `generate`, `sync`, `edit`, and `expand`) will automatically switch to **Agent Mode**. 
+
+In Agent Mode, Documentor uses an iterative AI agent that dynamically explores your codebase (listing directories and reading specific files) rather than loading the entire project into the LLM's context window. This prevents token limits from being exceeded while ensuring highly accurate documentation for massive projects. You can manually enable or configure this behavior in your `documentor.yaml` file.
+
+---
+
 ## Commands
 
 ### `init`
-Starts an interactive wizard to set up Documentor in your project. It walks you through selecting your LLM provider, setting output directories, defining file ignore patterns, specifying required files (manually or via AI auto-generation), and choosing a style template.
+Starts an interactive wizard to set up Documentor in your project. It walks you through selecting your LLM provider, setting output directories, defining file ignore patterns, specifying required files (manually or via AI auto-generation), configuring agent mode for large projects, and choosing a style template.
 
 ```bash
 documentor init
 ```
-**Result:** Creates a `documentor.yaml` configuration file and an optional `style.md` guide in your project root.
+**Result:** Creates a `documentor.yaml` configuration file in your project root and an optional `style.md` guide in your configured output directory (default: `docs/style.md`).
 
 ### `plan`
-Analyzes your project's context and suggests a list of recommended documentation files. You can choose to merge these suggestions with your existing configuration or overwrite it entirely.
+Analyzes your project's context and suggests a list of recommended documentation files. You can choose to merge these suggestions with your existing configuration or overwrite it entirely. If the project is large, it will use an intelligent agent to explore the codebase and determine what documentation is needed.
 
 ```bash
 documentor plan
@@ -35,7 +43,7 @@ documentor generate
 **Options:**
 * `-f, --force`: Force regeneration of all documentation files, ignoring the current tracking state.
 
-**Result:** Generates markdown files in your configured output directory and creates or updates a `documentor-lock.yaml` file to track the current state of your code.
+**Result:** Generates markdown files in your configured output directory and creates or updates a `documentor-lock.yaml` state file to track the current state of your code.
 
 ### `sync`
 Detects changes in your source code since the last generation and selectively updates only the documentation files that have become stale. 

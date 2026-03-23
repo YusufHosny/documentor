@@ -15,6 +15,11 @@ from documentor.utils.style import load_style_template, get_style_templates
 
 __version__ = "1.0.0"
 
+env_file = os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env")
+if os.path.exists(env_file):
+    from dotenv import load_dotenv
+    load_dotenv(env_file)
+
 app = typer.Typer(help="Documentor: A CLI tool for automatic documentation generation and management")
 console = Console()
 
@@ -339,7 +344,6 @@ def expand(target_file: str):
     writer = Writer(config)
     final_path = writer.write(target_file, new_content)
 
-    # update config if not already there
     existing_filenames = {f.filename.lower() for f in config.required_files}
     if filename.lower() not in existing_filenames and target_file.lower() not in existing_filenames:
         config.required_files.append(doc_info)
