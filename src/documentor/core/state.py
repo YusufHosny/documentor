@@ -16,6 +16,12 @@ class PersistedDocState(BaseModel):
     last_source_hash: str
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 
+    def to_ds(self):
+        kwargs = self.model_dump()
+        kwargs['doc_path'] = Path(kwargs['doc_path'])
+        ds = DocState(**kwargs)
+        return ds
+
 class DocState(BaseModel):
     doc_path: Path
     tracking_type: Literal["file", "project"]
@@ -23,16 +29,31 @@ class DocState(BaseModel):
     last_source_hash: str
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 
-    @classmethod
-    def from_pds(cls, pds: PersistedDocState):
-        kwargs = pds.model_dump()
-        kwargs['doc_path'] = Path(kwargs['doc_path'])
-        ds = cls(**kwargs)
-        return ds
+    def to_pds(self):
+        kwargs = self.model_dump()
+        kwargs['doc_path'] = str(kwargs['doc_path'])
+        pds = PersistedDocState(**kwargs)
+        return pds
+
+class PersistedProjectState(BaseModel):
+    last_project_hash: str
+    managed_docs: List[PersistedDocState] = []
+
+    def to_ps(self):
+        kwargs = self.model_dump()
+        kwargs['managed_docs'] = [d.to_ds() for d in kwargs['managed_docs']]
+        ps = ProjectState(**kwargs)
+        print(ps)
+        return ps
 
 class ProjectState(BaseModel):
     last_project_hash: str
     managed_docs: List[DocState] = []
+
+    def to_pps(self):
+        kwargs = self.model_dump()
+        kwargs['managed_docs'] = [d.to_pds() for d in kwargs['managed_docs']]
+        return PersistedProjectState(**kwargs)
 
 class StateManager:
     def __init__(self, config: Config):
@@ -46,7 +67,7 @@ class StateManager:
             try:
                 with open(self.lock_file, "r", encoding="utf-8") as f:
                     data = yaml.full_load(f) or {}
-                return ProjectState(**data)
+                return PersistedProjectState(**data).to_ps()
             except Exception:
                 pass
         return ProjectState(last_project_hash="")
@@ -54,7 +75,7 @@ class StateManager:
     def save_state(self):
         """Saves current state to the lockfile."""
         with open(self.lock_file, "w", encoding="utf-8") as f:
-            yaml.dump(self.state.model_dump(), f, default_flow_style=False, sort_keys=False)
+            yaml.dump(self.state.to_pps().model_dump(), f, default_flow_style=False, sort_keys=False)
 
     def get_current_hash(self, paths: Optional[List[str]] = None) -> str:
         """Computes current hash for given paths or the entire project."""

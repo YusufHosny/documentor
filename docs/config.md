@@ -1,4 +1,3 @@
-```markdown
 # Configuration Reference
 
 Documentor uses a YAML configuration file, typically named `documentor.yaml`, to control how documentation is generated and managed. 
@@ -113,4 +112,3 @@ LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 ```
 
 > *Docs generated with [documentor](https://github.com/YusufHosny/documentor)*
-```
