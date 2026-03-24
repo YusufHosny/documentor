@@ -3,22 +3,18 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from documentor.core.config import Config
 from documentor.llm.client import get_llm
+from documentor.llm.prompts import get_prompt_parts
 
 def sync_doc(current_content: str, context: List[Dict[str, str]], config: Config, diff: Optional[str] = None) -> str:
     """Updates an existing document based on changes in the source code context."""
     llm = get_llm(config)
 
+    prompts = get_prompt_parts("sync")
+
     prompt_messages = [
-        ("system", "You are an expert technical writer. You are updating an existing markdown document because the underlying source code has changed."),
-        ("system", "Your goal is to synchronize the document with the new source code state. Maintain the existing structure and style, but update any descriptions, examples, or references that are no longer accurate."),
-        ("system", "Output ONLY the updated markdown content, without any extra conversation or markdown formatting ticks."),
-        ("system", "This is the style guide to follow:\n{style_guide}")
+        ("system", prompts["system_prompt"]),
+        ("user", prompts["user_prompt"])
     ]
-
-    if diff:
-        prompt_messages.append(("system", "The following changes were detected in the source code:\n{diff}"))
-
-    prompt_messages.append(("user", "Current Document Content:\n{current_content}\n\nNew Project Context:\n{context}\n\nPlease provide the updated document."))
 
     prompt = ChatPromptTemplate.from_messages(prompt_messages)
 
@@ -27,11 +23,12 @@ def sync_doc(current_content: str, context: List[Dict[str, str]], config: Config
     context_str = "\n\n".join([f"--- File: {f['path']} ---\n{f['content']}" for f in context])
 
     inputs = {
+        "context_instruction": "",
+        "style_guide": config.get_style_guide(),
+        "diff_content": f"The following changes were detected in the source code:\n{diff}" if diff else "",
         "current_content": current_content,
-        "context": context_str,
-        "style_guide": config.get_style_guide()
+        "context_content": f"New Project Context:\n{context_str}",
+        "agent_instruction": ""
     }
-    if diff:
-        inputs["diff"] = diff
 
     return chain.invoke(inputs)

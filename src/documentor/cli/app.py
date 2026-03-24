@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Optional
 import typer
 from rich.console import Console
@@ -275,7 +276,7 @@ def generate(force_regenerate: bool = typer.Option(False, "--force", "-f", help=
         generated_files = generate_docs(context, config, docs_to_generate)
 
     for file_path in generated_files:
-        state_manager.update_doc_state(doc_path=file_path)
+        state_manager.update_doc_state(doc_path=Path(file_path))
 
     console.print("[green]Generation complete![/green]")
 
@@ -306,7 +307,7 @@ def edit(target_file: str):
     final_path = writer.write(target_file, new_content)
 
     state_manager = StateManager(config)
-    state_manager.update_doc_state(doc_path=final_path)
+    state_manager.update_doc_state(doc_path=Path(final_path))
 
     console.print(f"[green]Successfully edited {target_file}![/green]")
 
@@ -350,7 +351,7 @@ def expand(target_file: str):
         config_manager.save_config(config)
 
     state_manager = StateManager(config)
-    state_manager.update_doc_state(doc_path=final_path)
+    state_manager.update_doc_state(doc_path=Path(final_path))
 
     console.print(f"[green]Successfully expanded {target_file}![/green]")
 
@@ -406,10 +407,10 @@ def sync():
             context = parser.extract_context()
             new_content = sync_doc(current_content, context, config, diff)
 
-        final_path = writer.write(ds.doc_path, new_content)
+        final_path = writer.write(str(ds.doc_path), new_content)
 
         state_manager.update_doc_state(
-            doc_path=final_path,
+            doc_path=Path(final_path),
             tracking_type=ds.tracking_type,
             source_refs=ds.source_refs
         )

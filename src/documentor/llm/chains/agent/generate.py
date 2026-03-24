@@ -6,6 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from documentor.core.config import Config, DocItem
 from documentor.llm.client import get_llm
 from documentor.core.writer import Writer
+from documentor.llm.prompts import get_prompt_parts
 from .tools import get_tools
 
 def agent_generate_docs(config: Config, docs_to_generate: List[DocItem]) -> List[str]:
@@ -15,21 +16,30 @@ def agent_generate_docs(config: Config, docs_to_generate: List[DocItem]) -> List
     writer = Writer(config)
     generated_files = []
 
-    system_message_base = f"""You are an expert technical writer. Your goal is to create a comprehensive, well-structured markdown document by exploring the codebase to find relevant information.
-You can use the provided tools to browse the files.
-Follow this style guide:
-{config.get_style_guide()}"""
+    prompts = get_prompt_parts("generate")
+    common_prompts = get_prompt_parts("common")
+
+    system_message_base = prompts["system_prompt"].format(
+        context_instruction="Your goal is to explore the codebase to find relevant information. You can use the provided tools to browse the files.",
+        style_guide=config.get_style_guide()
+    )
 
     agent = create_agent(llm, tools, system_prompt=system_message_base)
 
     for doc in docs_to_generate:
-        user_input = f"Please generate the {doc.filename} file with the following type '{doc.type}' and description: '{doc.description}'. Explore the codebase as needed."
+        user_input = prompts["user_prompt"].format(
+            context_content="",
+            filename=doc.filename,
+            doc_type=doc.type,
+            description=doc.description,
+            agent_instruction="Explore the codebase as needed."
+        )
 
         result = agent.invoke({"messages": [HumanMessage(content=user_input)]})
         content = result["messages"][-1].content
 
         refine_prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are an expert technical writer. Strip any conversational filler or meta-commentary and return only the clean markdown documentation content."),
+            ("system", common_prompts["refine_prompt"]),
             ("user", "Documentation Content:\n{content}")
         ])
 

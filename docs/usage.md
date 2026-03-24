@@ -1,113 +1,113 @@
 # CLI Usage Guide
 
-Documentor provides a straightforward command-line interface to initialize, generate, and maintain your project's documentation. 
+Documentor provides a command-line interface to initialize, generate, and maintain your project's documentation. 
 
 ## Global Options
 
-* **`--version`**: Show the installed version of Documentor and exit.
+* **`--version`**: Show the installed version and exit.
+* **`--help`**: Show help messages and exit.
 
 ---
 
-## Agent Mode (Large Context Handling)
+## Agent Mode
 
-Documentor automatically detects when your project's context size exceeds a configurable threshold (default: `1000 KB`). When this happens, core commands (`plan`, `generate`, `sync`, `edit`, and `expand`) will automatically switch to **Agent Mode**. 
-
-In Agent Mode, Documentor uses an iterative AI agent that dynamically explores your codebase (listing directories and reading specific files) rather than loading the entire project into the LLM's context window. This prevents token limits from being exceeded while ensuring highly accurate documentation for massive projects. You can manually enable or configure this behavior in your `documentor.yaml` file.
+Documentor automatically switches to Agent Mode for large projects (default threshold: `1000 KB`). This prevents exceeding AI token limits by dynamically exploring the codebase instead of loading it all at once. You can force or configure this behavior in `documentor.yaml`.
 
 ---
 
 ## Commands
 
 ### `init`
-Starts an interactive wizard to set up Documentor in your project. It walks you through selecting your LLM provider, setting output directories, defining file ignore patterns, specifying required files (manually or via AI auto-generation), configuring agent mode for large projects, and choosing a style template.
+Starts an interactive wizard to configure Documentor for your project.
 
 ```bash
 documentor init
 ```
-**Result:** Creates a `documentor.yaml` configuration file in your project root and an optional `style.md` guide in your configured output directory (default: `docs/style.md`).
+**Result:** Creates a `documentor.yaml` configuration file and an optional `style.md` formatting guide. It also offers to automatically plan your documentation suite.
 
 ### `plan`
-Analyzes your project's context and suggests a list of recommended documentation files. You can choose to merge these suggestions with your existing configuration or overwrite it entirely. If the project is large, it will use an intelligent agent to explore the codebase and determine what documentation is needed.
+Analyzes your project to suggest a list of needed documentation files. 
 
 ```bash
 documentor plan
 ```
-**Result:** Updates the `required_files` list in your `documentor.yaml`.
+**Result:** Suggests new files and asks whether to merge them into or overwrite the existing `required_files` list in `documentor.yaml`.
 
 ### `generate`
-Reads your configuration, analyzes your project's source code, and creates your documentation files. By default, it skips files that are already up to date to save time and API costs.
+Creates or updates your documentation files. By default, it skips files that are already up to date.
 
 ```bash
 documentor generate
 ```
 **Options:**
-* `-f, --force`: Force regeneration of all documentation files, ignoring the current tracking state.
+* `-f, --force`: Regenerate all files, ignoring current tracking state.
 
-**Result:** Generates markdown files in your configured output directory and creates or updates a `documentor-lock.yaml` state file to track the current state of your code.
+**Result:** Generates markdown files and updates `documentor-lock.yaml` with the current state.
 
 ### `sync`
-Detects changes in your source code since the last generation and selectively updates only the documentation files that have become stale. 
+Updates existing documentation files based on source code changes since the last generation.
 
 ```bash
 documentor sync
 ```
-*Note: Incremental updates rely on Git. Ensure `use_git: true` is set in your configuration.*
+*Note: Requires `use_git: true` in your configuration to utilize git diffs for incremental updates.*
 
 ### `edit`
-Refines an existing markdown document using natural language feedback. When run, the CLI prompts you to type your instructions for the AI to rewrite or adjust the file.
+Refines an existing markdown document based on your natural language instructions. The CLI prompts you for comments before applying the changes using AI.
 
 ```bash
 documentor edit <target_file>
 ```
 **Arguments:**
-* `target_file`: The path to the markdown file you want to edit (e.g., `docs/API.md`).
+* `target_file`: Path to the markdown file to edit.
 
 ### `expand`
-Transforms rough bullet points or scratchpad notes into a fully formatted, professional markdown document. Documentor automatically infers the intended document type and description from your project context, creates the file, and adds it to your `documentor.yaml` tracking list.
+Transforms draft notes or scrappy bullet points into a coherent, well-formatted markdown document. Documentor infers the document's metadata (like type and description) and automatically adds it to your configuration if it's missing.
 
 ```bash
 documentor expand <target_file>
 ```
 **Arguments:**
-* `target_file`: The path to the rough draft markdown file.
+* `target_file`: Path to the draft markdown file.
 
 ---
 
 ## Example Workflows
 
-### The Happy Path: Setting Up a New Project
-The fastest way to get value out of Documentor is to initialize it, generate your docs, and keep them synced as you write code.
-
+### Setup and Generate
+The quickest way to get started.
 ```bash
-# 1. Run the interactive setup and let the AI plan your required docs
 documentor init
-
-# 2. Generate the initial documentation suite
 documentor generate
+```
 
-# 3. Write new code, commit changes
-git commit -m "feat: add new payment gateway"
-
-# 4. Bring your docs up to date with your new code
+### Keep Docs Updated
+Sync existing documentation after making code changes.
+```bash
+git commit -m "feat: add payment gateway"
 documentor sync
 ```
 
-### Brainstorming to Formal Docs
-If you prefer to write brief, messy notes during a meeting or coding session, you can use Documentor to instantly convert them into formal project documentation. 
-
+### AI-Assisted Writing
 ```bash
-# Expand your raw notes into a formal document
+# Expand rough notes into a formal document
 documentor expand docs/draft-notes.md
+
+# Provide specific feedback to refine a document
+documentor edit docs/readme.md
 ```
 
-### Directing the AI
-If a generated document isn't quite right, you don't need to rewrite it manually or regenerate the whole project. Use the `edit` command to give the AI specific feedback.
+---
+
+## Tracing (Optional)
+
+Documentor supports LangSmith for tracing AI requests. Enable it via environment variables:
 
 ```bash
-documentor edit docs/readme.md
-# The CLI will prompt you:
-# Please enter your comments for the AI: 
-# > "Add a section explaining how to run the test suite."
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your_api_key
+LANGSMITH_PROJECT=documentor
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 ```
 
 > *Docs generated with [documentor](https://github.com/YusufHosny/documentor)*

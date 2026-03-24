@@ -5,15 +5,30 @@ from datetime import datetime
 from typing import List, Optional, Literal
 import yaml
 from pydantic import BaseModel, Field
+from pathlib import Path
 
 from documentor.core.config import Config
 
-class DocState(BaseModel):
+class PersistedDocState(BaseModel):
     doc_path: str
     tracking_type: Literal["file", "project"]
     source_refs: List[str]
     last_source_hash: str
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+class DocState(BaseModel):
+    doc_path: Path
+    tracking_type: Literal["file", "project"]
+    source_refs: List[str]
+    last_source_hash: str
+    updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+    @classmethod
+    def from_pds(cls, pds: PersistedDocState):
+        kwargs = pds.model_dump()
+        kwargs['doc_path'] = Path(kwargs['doc_path'])
+        ds = cls(**kwargs)
+        return ds
 
 class ProjectState(BaseModel):
     last_project_hash: str
@@ -117,7 +132,7 @@ class StateManager:
             hasher.update(item["content"].encode("utf-8"))
         return hasher.hexdigest()
 
-    def update_doc_state(self, doc_path: str, tracking_type: Optional[Literal["file", "project"]] = None, source_refs: Optional[List[str]] = None):
+    def update_doc_state(self, doc_path: Path, tracking_type: Optional[Literal["file", "project"]] = None, source_refs: Optional[List[str]] = None):
         """Updates or adds a DocState entry."""
         current_hash = self.get_current_hash(source_refs if tracking_type == "file" else None)
 

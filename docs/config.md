@@ -1,3 +1,4 @@
+```markdown
 # Configuration Reference
 
 Documentor uses a YAML configuration file, typically named `documentor.yaml`, to control how documentation is generated and managed. 
@@ -68,10 +69,12 @@ required_files:
 | `ignore_above_size_kb`| integer | `100` | Excludes source files larger than this size (KB) during context extraction. |
 | `ignore_patterns` | list | `[".git", "__pycache__", "venv", ".venv", "env", "node_modules", ".env", "*.pyc", "*.pyo"]` | File and directory patterns to ignore during context extraction. |
 
+> **Note:** Documentor generates a `documentor-lock.yaml` file to track the sync state of your documentation. You should commit this file to your repository.
+
 ### Documentation Scope
 
 *   **`required_files`** (list of objects): The list of documentation files to keep updated. Run `documentor plan` to auto-generate this list based on the codebase. Default: `[]`.
-    *   **`filename`** (string): The target markdown filename (e.g., `Authentication.md`).
+    *   **`filename`** (string): The target markdown filename (e.g., `API.md`).
     *   **`description`** (string): A brief description guiding the AI on what the document should cover.
     *   **`type`** (string): The document category (e.g., `API Reference`, `Architecture`).
 
@@ -79,7 +82,35 @@ required_files:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `use_agent` | boolean | `false` | Forces the use of the iterative agent mode instead of standard chaining. |
+| `use_agent` | boolean | `false` | Enables agent-based dynamic context extraction. |
 | `agent_threshold_kb` | integer | `1000` | Automatically switches to agent mode if the source context size exceeds this threshold (KB) to prevent hitting LLM context limits. |
 
+---
+
+## Environment Variables
+
+Documentor automatically loads environment variables from a `.env` file if one is present. This is useful for managing API keys and telemetry settings.
+
+### Provider API Keys
+
+Depending on your configured `provider`, ensure the corresponding credentials are set in your environment:
+
+*   **OpenAI**: Requires the `OPENAI_API_KEY` environment variable.
+*   **Vertex AI**: Requires standard Google Cloud credentials (e.g., via the `GOOGLE_APPLICATION_CREDENTIALS` environment variable).
+*   **Ollama**: Runs locally and requires no API key.
+
+### LangSmith Tracing
+
+Documentor integrates with [LangSmith](https://smith.langchain.com/) to provide tracing and debugging for AI operations. Traces automatically include metadata such as the executed CLI command, run ID, and model configuration. 
+
+To enable tracking, add the following variables to your `.env` file:
+
+```env
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your_api_key_here
+LANGSMITH_PROJECT=documentor
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+```
+
 > *Docs generated with [documentor](https://github.com/YusufHosny/documentor)*
+```

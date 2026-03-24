@@ -4,6 +4,7 @@ from langchain.agents import create_agent
 from langchain_core.prompts import ChatPromptTemplate
 from documentor.core.config import Config, DocList, DocItem
 from documentor.llm.client import get_llm
+from documentor.llm.prompts import get_prompt_parts
 from .tools import get_tools
 
 def agent_generate_plan(config: Config) -> List[DocItem]:
@@ -11,20 +12,21 @@ def agent_generate_plan(config: Config) -> List[DocItem]:
     llm = get_llm(config)
     tools = get_tools(config)
 
+    prompts = get_prompt_parts("plan")
+
     required_files_str = "\n".join([f"- {f.filename} (Type: {f.type})" for f in config.required_files])
 
-    system_message = f"""You are an expert technical documentation architect.
-Your goal is to analyze the project codebase and suggest a list of documentation files that should be generated to provide a complete understanding of the codebase.
-You can explore the codebase using the provided tools.
-The current documentation style guide is:
-{config.get_style_guide()}
-
-The following files are already required and you should NOT duplicate them:
-{required_files_str}"""
+    system_message = prompts["system_prompt"].format(
+        context_instruction="Your goal is to analyze the project codebase and suggest a list of documentation files that should be generated to provide a complete understanding of the codebase. You can explore the codebase using the provided tools.",
+        style_guide=config.get_style_guide(),
+        required_files=required_files_str
+    )
 
     agent = create_agent(llm, tools, system_prompt=system_message)
 
-    user_input = "Please explore the codebase and suggest documentation files. When you have a good understanding of the project, provide a summary of your suggestions."
+    user_input = prompts["user_prompt"].format(
+        context_content=""
+    )
 
     result = agent.invoke({"messages": [HumanMessage(content=user_input)]})
     findings = result["messages"][-1].content
@@ -59,13 +61,18 @@ def agent_infer_doc_info(filename: str, config: Config) -> DocItem:
     llm = get_llm(config)
     tools = get_tools(config)
 
-    system_message = f"""You are an expert technical documentation architect.
-Your goal is to infer the most appropriate documentation type and description for the file: {filename}.
-You can explore the project codebase using the provided tools to understand what this file should document."""
+    prompts = get_prompt_parts("infer")
+
+    system_message = prompts["system_prompt"].format(
+        context_instruction=f"Your goal is to infer the most appropriate documentation type and description for the file: {filename}. You can explore the project codebase using the provided tools to understand what this file should document."
+    )
 
     agent = create_agent(llm, tools, system_prompt=system_message)
 
-    user_input = f"Explore the project codebase to understand what {filename} should document, then provide your inference."
+    user_input = prompts["user_prompt"].format(
+        filename_content=f"Filename: {filename}",
+        exploration_findings="",
+    ).replace("Based on the project context", "Explore the project codebase to understand what the file should document")
 
     result = agent.invoke({"messages": [HumanMessage(content=user_input)]})
     findings = result["messages"][-1].content
