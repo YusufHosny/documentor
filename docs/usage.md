@@ -101,9 +101,9 @@ documentor edit docs/readme.md
 
 ## Tracing (Optional)
 
-Documentor supports LangSmith for tracing AI requests. Enable it via environment variables:
+Documentor supports LangSmith for tracing AI requests. Traces automatically include metadata such as the executed CLI command, run ID, and model configuration. Enable it via environment variables or a `.env` file:
 
-```bash
+```env
 LANGSMITH_TRACING=true
 LANGSMITH_API_KEY=your_api_key
 LANGSMITH_PROJECT=documentor

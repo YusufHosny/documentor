@@ -18,7 +18,7 @@ class PersistedDocState(BaseModel):
 
     def to_ds(self):
         kwargs = self.model_dump()
-        kwargs['doc_path'] = Path(kwargs['doc_path'])
+        kwargs['doc_path'] = Path(kwargs['doc_path'].replace('\\','/'))
         ds = DocState(**kwargs)
         return ds
 
@@ -41,10 +41,8 @@ class PersistedProjectState(BaseModel):
 
     def to_ps(self):
         kwargs = self.model_dump()
-        kwargs['managed_docs'] = [d.to_ds() for d in kwargs['managed_docs']]
-        ps = ProjectState(**kwargs)
-        print(ps)
-        return ps
+        kwargs['managed_docs'] = [d.to_ds() for d in self.managed_docs]
+        return ProjectState(**kwargs)
 
 class ProjectState(BaseModel):
     last_project_hash: str
@@ -52,7 +50,7 @@ class ProjectState(BaseModel):
 
     def to_pps(self):
         kwargs = self.model_dump()
-        kwargs['managed_docs'] = [d.to_pds() for d in kwargs['managed_docs']]
+        kwargs['managed_docs'] = [d.to_pds() for d in self.managed_docs]
         return PersistedProjectState(**kwargs)
 
 class StateManager:

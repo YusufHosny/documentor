@@ -1,4 +1,5 @@
 import os
+import asyncio
 from pathlib import Path
 from typing import Optional
 import typer
@@ -6,9 +7,21 @@ from rich.console import Console
 import questionary
 from documentor.core.config import Config, ConfigManager
 from documentor.core.state import StateManager
-from documentor.llm.chains import generate_docs, edit_doc, expand_doc, sync_doc, generate_plan, infer_doc_info
+from documentor.llm.chains import (
+    generate_docs, async_generate_docs,
+    edit_doc,
+    expand_doc,
+    sync_doc, async_sync_doc,
+    generate_plan,
+    infer_doc_info
+)
 from documentor.llm.chains.agent import (
-    agent_generate_docs, agent_edit_doc, agent_expand_doc, agent_sync_doc, agent_generate_plan, agent_infer_doc_info
+    agent_generate_docs, async_agent_generate_docs,
+    agent_edit_doc,
+    agent_expand_doc,
+    agent_sync_doc, async_agent_sync_docs,
+    agent_generate_plan,
+    agent_infer_doc_info
 )
 from documentor.core.parser import Parser
 from documentor.core.writer import Writer
@@ -268,12 +281,12 @@ def generate(force_regenerate: bool = typer.Option(False, "--force", "-f", help=
         return
 
     if should_use_agent(config, parser):
-        console.print(f"[blue]Generating {len(docs_to_generate)} documentation files using agent mode...[/blue]")
-        generated_files = agent_generate_docs(config, docs_to_generate)
+        console.print(f"[blue]Generating {len(docs_to_generate)} documentation files using agent mode in parallel...[/blue]")
+        generated_files = asyncio.run(async_agent_generate_docs(config, docs_to_generate))
     else:
-        console.print(f"[blue]Generating {len(docs_to_generate)} documentation files...[/blue]")
+        console.print(f"[blue]Generating {len(docs_to_generate)} documentation files in parallel...[/blue]")
         context = parser.extract_context()
-        generated_files = generate_docs(context, config, docs_to_generate)
+        generated_files = asyncio.run(async_generate_docs(context, config, docs_to_generate))
 
     for file_path in generated_files:
         state_manager.update_doc_state(doc_path=Path(file_path))
@@ -375,9 +388,8 @@ def sync():
     use_agent = should_use_agent(config, parser)
     writer = Writer(config)
 
+    docs_to_sync = []
     for ds in stale_docs:
-        console.print(f"Syncing [cyan]{ds.doc_path}[/cyan]...")
-
         if not os.path.exists(ds.doc_path):
             console.print(f"[red]Warning: {ds.doc_path} not found. Skipping.[/red]")
             continue
@@ -401,20 +413,32 @@ def sync():
             except Exception:
                 pass
 
+        docs_to_sync.append({
+            "doc_path": ds.doc_path,
+            "current_content": current_content,
+            "diff": diff,
+            "stale_doc_state": ds
+        })
+
+    if docs_to_sync:
         if use_agent:
-            new_content = agent_sync_doc(current_content, config, diff)
+            console.print(f"[blue]Syncing {len(docs_to_sync)} documentation files using agent mode in parallel...[/blue]")
+            final_paths = asyncio.run(async_agent_sync_docs(config, docs_to_sync))
         else:
+            console.print(f"[blue]Syncing {len(docs_to_sync)} documentation files in parallel...[/blue]")
             context = parser.extract_context()
-            new_content = sync_doc(current_content, context, config, diff)
+            final_paths = asyncio.run(async_sync_docs(context, config, docs_to_sync))
 
-        final_path = writer.write(str(ds.doc_path), new_content)
-
-        state_manager.update_doc_state(
-            doc_path=Path(final_path),
-            tracking_type=ds.tracking_type,
-            source_refs=ds.source_refs
-        )
-        console.print(f"[green]Successfully synced {ds.doc_path}![/green]")
+        # Update states
+        for i, doc_data in enumerate(docs_to_sync):
+            ds = doc_data["stale_doc_state"]
+            final_path = final_paths[i]
+            state_manager.update_doc_state(
+                doc_path=Path(final_path),
+                tracking_type=ds.tracking_type,
+                source_refs=ds.source_refs
+            )
+            console.print(f"[green]Successfully synced {final_path}![/green]")
 
     console.print("[green]Sync complete![/green]")
 
