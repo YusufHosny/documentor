@@ -1,20 +1,20 @@
-last_project_hash: 30b29697e3945c0fc3011132ca3a97b600730fee-dirty-8aa4ca6468e8a88467a2a02b25da69a3
+last_project_hash: 05ee33ee29132eb130f9a27a11404e3c17e0670a-dirty-0ff686b5f69fb5f1c38cd49065befaa7
 managed_docs:
 - doc_path: readme.md
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 30b29697e3945c0fc3011132ca3a97b600730fee-dirty-8aa4ca6468e8a88467a2a02b25da69a3
-  updated_at: '2026-03-25T02:45:20.025344'
+  last_source_hash: 05ee33ee29132eb130f9a27a11404e3c17e0670a-dirty-0ff686b5f69fb5f1c38cd49065befaa7
+  updated_at: '2026-03-25T03:03:02.321359'
 - doc_path: docs/config.md
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 30b29697e3945c0fc3011132ca3a97b600730fee-dirty-8aa4ca6468e8a88467a2a02b25da69a3
-  updated_at: '2026-03-25T02:45:20.074656'
+  last_source_hash: 05ee33ee29132eb130f9a27a11404e3c17e0670a-dirty-0ff686b5f69fb5f1c38cd49065befaa7
+  updated_at: '2026-03-25T03:03:02.339504'
 - doc_path: docs/usage.md
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 30b29697e3945c0fc3011132ca3a97b600730fee-dirty-8aa4ca6468e8a88467a2a02b25da69a3
-  updated_at: '2026-03-25T02:45:20.092936'
+  last_source_hash: 05ee33ee29132eb130f9a27a11404e3c17e0670a-dirty-0ff686b5f69fb5f1c38cd49065befaa7
+  updated_at: '2026-03-25T03:03:02.368705'

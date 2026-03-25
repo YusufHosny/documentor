@@ -5,21 +5,21 @@ from typing import Optional
 import typer
 from rich.console import Console
 import questionary
-from documentor.core.config import Config, ConfigManager
+from documentor.core.config import Config, ConfigManager, DocItem
 from documentor.core.state import StateManager
 from documentor.llm.chains import (
-    generate_docs, async_generate_docs,
+    async_generate_docs,
     edit_doc,
     expand_doc,
-    sync_doc, async_sync_doc,
+    async_sync_docs,
     generate_plan,
     infer_doc_info
 )
 from documentor.llm.chains.agent import (
-    agent_generate_docs, async_agent_generate_docs,
+    async_agent_generate_docs,
     agent_edit_doc,
     agent_expand_doc,
-    agent_sync_doc, async_agent_sync_docs,
+    async_agent_sync_docs,
     agent_generate_plan,
     agent_infer_doc_info
 )
@@ -369,6 +369,35 @@ def expand(target_file: str):
     console.print(f"[green]Successfully expanded {target_file}![/green]")
 
 @app.command()
+def add(target_file: str):
+    """Adds an existing documentation file to the config and lockfile."""
+    console.print(f"[blue]Adding {target_file} to tracking...[/blue]")
+    config_manager = ConfigManager()
+    config = config_manager.load_config()
+
+    if not os.path.exists(target_file):
+        console.print(f"[red]Error: {target_file} not found.[/red]")
+        raise typer.Exit(1)
+
+    state_manager = StateManager(config)
+    state_manager.update_doc_state(doc_path=Path(target_file))
+
+    filename = os.path.basename(target_file)
+    existing_filenames = {f.filename.lower() for f in config.required_files}
+
+    if filename.lower() not in existing_filenames:
+        doc_item = DocItem(
+            filename=filename,
+            type="Manual",
+            description="Manually added documentation file"
+        )
+        config.required_files.append(doc_item)
+        config_manager.save_config(config)
+        console.print(f"[green]Added {filename} to required_files in documentor.yaml[/green]")
+
+    console.print(f"[green]Successfully added {target_file} to tracking![/green]")
+
+@app.command()
 def sync():
     """Syncs existing documentation with current source code state."""
     console.print("[blue]Syncing documentation...[/blue]")
@@ -386,7 +415,6 @@ def sync():
 
     parser = Parser(config)
     use_agent = should_use_agent(config, parser)
-    writer = Writer(config)
 
     docs_to_sync = []
     for ds in stale_docs:

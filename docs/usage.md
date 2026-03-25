@@ -34,7 +34,7 @@ documentor plan
 **Result:** Suggests new files and asks whether to merge them into or overwrite the existing `required_files` list in `documentor.yaml`.
 
 ### `generate`
-Creates or updates your documentation files. By default, it skips files that are already up to date.
+Creates or updates your documentation files in parallel. By default, it skips files that are already up to date.
 
 ```bash
 documentor generate
@@ -45,7 +45,7 @@ documentor generate
 **Result:** Generates markdown files and updates `documentor-lock.yaml` with the current state.
 
 ### `sync`
-Updates existing documentation files based on source code changes since the last generation.
+Updates existing documentation files in parallel based on source code changes since the last generation.
 
 ```bash
 documentor sync
@@ -104,10 +104,10 @@ documentor edit docs/readme.md
 Documentor supports LangSmith for tracing AI requests. Traces automatically include metadata such as the executed CLI command, run ID, and model configuration. Enable it via environment variables or a `.env` file:
 
 ```env
-LANGSMITH_TRACING=true
-LANGSMITH_API_KEY=your_api_key
-LANGSMITH_PROJECT=documentor
-LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_api_key
+LANGCHAIN_PROJECT=documentor
+LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
 ```
 
 > *Docs generated with [documentor](https://github.com/YusufHosny/documentor)*

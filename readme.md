@@ -5,6 +5,7 @@ Documentor is an AI-powered CLI tool that automatically generates, manages, and 
 ## Features
 
 * **Smart Planning**: AI analyzes your project to suggest required documentation files.
+* **Parallel Execution**: Generates and synchronizes multiple documentation files concurrently for significantly faster performance.
 * **Automatic Generation**: Creates comprehensive markdown documentation directly from your codebase.
 * **State Synchronization**: Keeps existing documentation up to date with code changes using Git diffs.
 * **AI-Assisted Editing**: Expand quick bullet points into well-formatted documents or edit existing files via natural language prompts.

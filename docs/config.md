@@ -72,7 +72,7 @@ required_files:
 
 ### Documentation Scope
 
-*   **`required_files`** (list of objects): The list of documentation files to keep updated. Run `documentor plan` to auto-generate this list based on the codebase. Default: `[]`.
+*   **`required_files`** (list of objects): The list of documentation files to keep updated. Run `documentor plan` to auto-generate this list based on the codebase. Documentor generates and synchronizes these files in parallel for improved performance. Default: `[]`.
     *   **`filename`** (string): The target markdown filename (e.g., `API.md`).
     *   **`description`** (string): A brief description guiding the AI on what the document should cover.
     *   **`type`** (string): The document category (e.g., `API Reference`, `Architecture`).
