@@ -3,10 +3,13 @@ from typing import List, Dict, Optional, Tuple, Any
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from documentor.core.config import Config
-from documentor.llm.client import get_llm
+from documentor.llm.client import get_llm, retryable
 from documentor.llm.prompts import get_prompt_parts
 
-def _prepare_sync_chain_and_inputs(current_content: str, context_str: str, config: Config, diff: Optional[str] = None) -> Tuple[Any, Dict[str, Any]]:
+
+def _prepare_sync_chain_and_inputs(
+    current_content: str, context_str: str, config: Config, diff: Optional[str] = None
+) -> Tuple[Any, Dict[str, Any]]:
     """Helper to prepare the LangChain chain and inputs for sync."""
     llm = get_llm(config)
 
@@ -14,45 +17,70 @@ def _prepare_sync_chain_and_inputs(current_content: str, context_str: str, confi
 
     prompt_messages = [
         ("system", prompts["system_prompt"]),
-        ("user", prompts["user_prompt"])
+        ("user", prompts["user_prompt"]),
     ]
 
     prompt = ChatPromptTemplate.from_messages(prompt_messages)
-    chain = prompt | llm | StrOutputParser()
+    chain = retryable(prompt | llm | StrOutputParser())
 
     inputs = {
         "context_instruction": "",
         "style_guide": config.get_style_guide(),
-        "diff_content": f"The following changes were detected in the source code:\n{diff}" if diff else "",
+        "diff_content": f"The following changes were detected in the source code:\n{diff}"
+        if diff
+        else "",
         "current_content": current_content,
         "context_content": f"New Project Context:\n{context_str}",
-        "agent_instruction": ""
+        "agent_instruction": "",
     }
     return chain, inputs
 
-def sync_doc(current_content: str, context: List[Dict[str, str]], config: Config, diff: Optional[str] = None) -> str:
+
+def sync_doc(
+    current_content: str,
+    context: List[Dict[str, str]],
+    config: Config,
+    diff: Optional[str] = None,
+) -> str:
     """Updates an existing document based on changes in the source code context."""
-    context_str = "\n\n".join([f"--- File: {f['path']} ---\n{f['content']}" for f in context])
-    chain, inputs = _prepare_sync_chain_and_inputs(current_content, context_str, config, diff)
+    context_str = "\n\n".join(
+        [f"--- File: {f['path']} ---\n{f['content']}" for f in context]
+    )
+    chain, inputs = _prepare_sync_chain_and_inputs(
+        current_content, context_str, config, diff
+    )
     return chain.invoke(inputs)
 
-async def async_sync_doc(current_content: str, context_str: str, config: Config, diff: Optional[str] = None) -> str:
+
+async def async_sync_doc(
+    current_content: str, context_str: str, config: Config, diff: Optional[str] = None
+) -> str:
     """Updates an existing document based on changes in the source code context asynchronously."""
-    chain, inputs = _prepare_sync_chain_and_inputs(current_content, context_str, config, diff)
+    chain, inputs = _prepare_sync_chain_and_inputs(
+        current_content, context_str, config, diff
+    )
     return await chain.ainvoke(inputs)
 
-async def async_sync_docs(context: List[Dict[str, str]], config: Config, docs_to_sync: List[Dict[str, Any]]) -> List[str]:
+
+async def async_sync_docs(
+    context: List[Dict[str, str]], config: Config, docs_to_sync: List[Dict[str, Any]]
+) -> List[str]:
     """Updates multiple documents in parallel based on changes in the source code context."""
     from documentor.core.writer import Writer
+
     writer = Writer(config)
-    context_str = "\n\n".join([f"--- File: {f['path']} ---\n{f['content']}" for f in context])
+    context_str = "\n\n".join(
+        [f"--- File: {f['path']} ---\n{f['content']}" for f in context]
+    )
 
     async def _sync_single(doc_data: Dict[str, Any]) -> str:
         doc_path = doc_data["doc_path"]
         current_content = doc_data["current_content"]
         diff = doc_data.get("diff")
 
-        chain, inputs = _prepare_sync_chain_and_inputs(current_content, context_str, config, diff)
+        chain, inputs = _prepare_sync_chain_and_inputs(
+            current_content, context_str, config, diff
+        )
         new_content = await chain.ainvoke(inputs)
         return writer.write(str(doc_path), new_content)
 
