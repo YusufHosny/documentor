@@ -65,6 +65,9 @@ def should_use_agent(config: Config, parser: Parser) -> bool:
     if config.use_agent:
         return True
 
+    if config.agent_threshold_kb == -1:
+        return False
+
     total_size = parser.get_total_context_size_kb()
     if total_size > config.agent_threshold_kb:
         console.print(f"[yellow]Project size ({total_size}KB) exceeds agent threshold ({config.agent_threshold_kb}KB). Switching to agent mode.[/yellow]")
@@ -211,10 +214,21 @@ def init():
         config_data["ignore_patterns"] = [p.strip() for p in ignore_patterns_str.split(",")]
 
     # agent setup
-    config_data["use_agent"] = handle_cancel(questionary.confirm("Enable agent-based dynamic context extraction for large projects?", default=False).ask())
-    if config_data["use_agent"]:
-        threshold_str = handle_cancel(questionary.text("Threshold for automatic agent mode (KB):", default="1000").ask())
+    agent_choice = handle_cancel(questionary.select(
+        "Use agent-mode (An agent will dynamcially handle your files instead of full-project context)?",
+        choices=[
+            questionary.Choice('Enable agent-mode always', value='always'),
+            questionary.Choice('Enable agent-mode if project context exceeds a threshold', value='threshold'),
+            questionary.Choice('Disable agent-mode', value='never')
+        ]
+    ).ask())
+
+    config_data["use_agent"] = agent_choice == 'always'
+    if agent_choice == 'threshold':
+        threshold_str = handle_cancel(questionary.text("Threshold in KB for automatic agent mode:", default="1000").ask())
         config_data["agent_threshold_kb"] = int(threshold_str) if threshold_str.isdigit() else 1000
+    else:
+        config_data["agent_threshold_kb"] = -1
 
     config = Config(**config_data)
     config_manager.save_config(config)
