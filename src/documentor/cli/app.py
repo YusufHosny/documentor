@@ -98,33 +98,12 @@ def plan():
     for doc in suggested_files:
         console.print(f"- [cyan]{doc.filename}[/cyan] ({doc.type}): {doc.description}")
 
-    if config.required_files:
-        action = handle_cancel(questionary.select(
-            "You already have required files in your config. What would you like to do?",
-            choices=[
-                questionary.Choice("Merge (add new suggestions to existing list)", value="merge"),
-                questionary.Choice("Overwrite (replace existing list with suggestions)", value="overwrite"),
-                questionary.Choice("Cancel", value="cancel")
-            ]
-        ).ask())
-
-        if action == "cancel":
-            console.print("[yellow]Planning cancelled.[/yellow]")
-            return
-        elif action == "merge":
-            existing_filenames = {f.filename.lower() for f in config.required_files}
-            for doc in suggested_files:
-                if doc.filename.lower() not in existing_filenames:
-                    config.required_files.append(doc)
-        else:
-            config.required_files = suggested_files
+    confirm = handle_cancel(questionary.confirm("Do you want to add these suggestions to your required files?", default=True).ask())
+    if confirm:
+        config.required_files = suggested_files
     else:
-        confirm = handle_cancel(questionary.confirm("Do you want to add these suggestions to your required files?", default=True).ask())
-        if confirm:
-            config.required_files = suggested_files
-        else:
-            console.print("[yellow]Planning cancelled.[/yellow]")
-            return
+        console.print("[yellow]Planning cancelled.[/yellow]")
+        return
 
     config_manager.save_config(config)
     console.print("[green]Updated documentor.yaml with the new documentation plan![/green]")
@@ -156,39 +135,6 @@ def init():
 
     # tracking options
     config_data["use_git"] = handle_cancel(questionary.confirm("Use git-based tracking for incremental updates?", default=True).ask())
-
-    # required files setup
-    method = handle_cancel(questionary.select(
-        "How would you like to specify the required doc files?",
-        choices=[
-            questionary.Choice("Manual (enter each file)", value="manual"),
-            questionary.Choice("Auto-generate (AI-assisted plan)", value="auto")
-        ]
-    ).ask())
-
-    required_files = []
-    if method == "manual":
-        while True:
-            filename = handle_cancel(questionary.text("Enter required filename (or empty to finish):", default="").ask())
-            if not filename:
-                break
-            filename = filename if filename.lower().endswith(".md") else f"{filename}.md"
-            file_type = handle_cancel(questionary.text(f"Enter document type for {filename}:", default="Overview").ask())
-            file_description = handle_cancel(questionary.text(f"Enter a short description for {filename}:", default="").ask())
-            required_files.append({"filename": filename, "type": file_type, "description": file_description})
-    else:
-        console.print("[blue]Analyzing project context to generate plan...[/blue]")
-        parser = Parser(Config(**config_data))
-        context = parser.extract_context()
-        required_files = generate_plan(context, Config(**config_data))
-        console.print(f"[green]AI suggested {len(required_files)} files based on project context.[/green]")
-
-    if required_files:
-        config_data["required_files"] = required_files
-
-    required_files_only = handle_cancel(questionary.confirm("Only use the required files (won't generate other docs)?", default=True).ask())
-    if required_files_only:
-        config_data["required_only"] = required_files_only
 
     # style md setup
     config_data["use_style_md"] = handle_cancel(questionary.confirm("Use a style.md file for formatting instructions?", default=True).ask())
@@ -262,6 +208,22 @@ def init():
                 console.print(f"[green]Created {style_path} using {selected_template} template![/green]")
             else:
                 console.print(f"[yellow]{style_path} already exists. Skipping initialization.[/yellow]")
+
+    # required files setup (documentor plan)
+    required_files = []
+    console.print("[blue]Analyzing project context to generate plan...[/blue]")
+    parser = Parser(config)
+    if should_use_agent(config, parser):
+        required_files = agent_generate_plan(config)
+    else:
+        context = parser.extract_context()
+        required_files = generate_plan(context, config)
+
+    console.print(f"[green]AI suggested {len(required_files)} files based on project context.[/green]")
+
+    if required_files:
+        config.required_files = required_files
+        config_manager.save_config(config)
 
     console.print("[blue]Initialization complete! Run `documentor generate` to generate your documentation.[/blue]")
 
