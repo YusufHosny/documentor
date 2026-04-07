@@ -78,7 +78,7 @@ def should_use_agent(config: Config, parser: Parser) -> bool:
 @app.command()
 def plan():
     """Analyzes the project context and suggests a list of documentation files to be managed."""
-    console.print("[blue]Planning documentation suite...[/blue]")
+    console.print("[blue]Planning your documentation...[/blue]")
     config_manager = ConfigManager()
     config = config_manager.load_config()
 
@@ -111,7 +111,7 @@ def plan():
 @app.command()
 def init():
     """Interactive setup to initialize documentor configuration."""
-    console.print("[blue]Welcome to Documentor initialization![/blue]")
+    console.print("[blue]Welcome to Documentor![/blue]")
 
     config_manager = ConfigManager()
     state_manager = StateManager(config_manager.load_config())
