@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Tuple
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from documentor.core.config import Config, DocItem
+from documentor.core.state import StateManager
 from documentor.llm.client import get_llm, retryable
 from documentor.core.writer import Writer
 from documentor.llm.prompts.generate import get_system_prompt, get_user_prompt
@@ -16,29 +17,31 @@ def _prepare_generate_chain_and_inputs(
 
     system_msg = get_system_prompt(
         context_instruction="Use the provided context as your source of truth.",
-        style_guide=config.get_style_guide()
+        style_guide=config.get_style_guide(),
     )
     user_msg = get_user_prompt(
         context_content=f"Here is the project context:\n{context_str}",
         filename=doc.filename,
         description=doc.description,
-        agent_instruction=""
+        agent_instruction="",
     )
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "{system_msg}"),
-        ("user", "{user_msg}")
-    ])
+    prompt = ChatPromptTemplate.from_messages(
+        [("system", "{system_msg}"), ("user", "{user_msg}")]
+    )
     chain = retryable(prompt | llm | StrOutputParser())
 
     return chain, {"system_msg": system_msg, "user_msg": user_msg}
 
 
 def generate_docs(
-    context: List[Dict[str, str]], config: Config, docs_to_generate: List[DocItem]
+    context: List[Dict[str, str]],
+    config: Config,
+    state_manager: StateManager,
+    docs_to_generate: List[DocItem],
 ) -> List[str]:
     """Generates documentation based on context and a specified list of documents."""
-    writer = Writer(config)
+    writer = Writer(config, state_manager)
     generated_files = []
     context_str = "\n\n".join(
         [f"--- File: {f['path']} ---\n{f['content']}" for f in context]
@@ -54,10 +57,13 @@ def generate_docs(
 
 
 async def async_generate_docs(
-    context: List[Dict[str, str]], config: Config, docs_to_generate: List[DocItem]
+    context: List[Dict[str, str]],
+    config: Config,
+    state_manager: StateManager,
+    docs_to_generate: List[DocItem],
 ) -> List[str]:
     """Generates documentation based on context and a specified list of documents asynchronously."""
-    writer = Writer(config)
+    writer = Writer(config, state_manager)
     context_str = "\n\n".join(
         [f"--- File: {f['path']} ---\n{f['content']}" for f in context]
     )

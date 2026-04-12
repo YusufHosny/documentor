@@ -11,7 +11,7 @@ Documentor provides a command-line interface to initialize, generate, and mainta
 
 ## Agent Mode
 
-Documentor automatically switches to Agent Mode for large projects (default threshold: `1000 KB`). This prevents exceeding AI token limits by dynamically exploring the codebase instead of loading it all at once. You can force or configure this behavior in `documentor.yaml`.
+Documentor automatically switches to Agent Mode for large projects (default threshold: `1000 KB`). This prevents exceeding AI token limits by dynamically exploring the codebase instead of loading it all at once. You can configure this behavior in `documentor.yaml` using the `agent_threshold_kb` option (`0` to always enable, `-1` to disable, or a specific size in KB).
 
 ---
 
@@ -31,7 +31,7 @@ Analyzes your project to suggest a list of needed documentation files.
 ```bash
 documentor plan
 ```
-**Result:** Suggests new files and asks whether to merge them into or overwrite the existing `required_files` list in `documentor.yaml`.
+**Result:** Suggests new files and asks whether to add them to your tracked documentation files in `documentor-lock.yaml`.
 
 ### `generate`
 Creates or updates your documentation files in parallel. By default, it skips files that are already up to date.
@@ -44,6 +44,20 @@ documentor generate
 
 **Result:** Generates markdown files and updates `documentor-lock.yaml` with the current state.
 
+### `add`
+Adds an existing documentation file to documentor tracking.
+
+```bash
+documentor add <target_file>
+```
+**Arguments:**
+* `target_file`: Path to the markdown file.
+
+**Options:**
+* `-d, --description`: Optional description for the added documentation file.
+
+**Result:** Adds the file to the managed docs in `documentor-lock.yaml`.
+
 ### `sync`
 Updates existing documentation files in parallel based on source code changes since the last generation.
 
@@ -53,7 +67,7 @@ documentor sync
 *Note: Requires `use_git: true` in your configuration to utilize git diffs for incremental updates.*
 
 ### `edit`
-Refines an existing markdown document based on your natural language instructions. The CLI prompts you for comments before applying the changes using AI.
+Refines an existing markdown document based on your natural language instructions. The CLI prompts you for comments before applying the changes using an LLM.
 
 ```bash
 documentor edit <target_file>
@@ -62,7 +76,7 @@ documentor edit <target_file>
 * `target_file`: Path to the markdown file to edit.
 
 ### `expand`
-Transforms draft notes or scrappy bullet points into a coherent, well-formatted markdown document. Documentor infers the document's metadata (like type and description) and automatically adds it to your configuration if it's missing.
+Transforms draft notes or scrappy bullet points into a coherent, well-formatted markdown document using an LLM. Documentor infers the document's description and automatically adds it to your tracked files in `documentor-lock.yaml` if it's missing.
 
 ```bash
 documentor expand <target_file>

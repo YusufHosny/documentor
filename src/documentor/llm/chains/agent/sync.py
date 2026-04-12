@@ -69,16 +69,18 @@ async def async_agent_sync_doc(
     )
     result = await agent.ainvoke(inputs)
     content = result["messages"][-1].content
-    return await refine_chain.ainvoke({"system_msg": get_refine_prompt(), "content": content})
+    return await refine_chain.ainvoke(
+        {"system_msg": get_refine_prompt(), "content": content}
+    )
 
 
 async def async_agent_sync_docs(
-    config: Config, docs_to_sync: List[Dict[str, Any]]
+    config: Config, state_manager: Any, docs_to_sync: List[Dict[str, Any]]
 ) -> List[str]:
     """Synchronizes multiple documents with the current codebase in parallel."""
     from documentor.core.writer import Writer
 
-    writer = Writer(config)
+    writer = Writer(config, state_manager)
 
     async def _sync_single(doc_data: Dict[str, Any]) -> str:
         filepath = doc_data["filepath"]

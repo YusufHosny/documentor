@@ -5,9 +5,9 @@ import regex
 
 
 class Writer:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, state_manager: StateManager):
         self.config = config
-        self.state_manager = StateManager(config)
+        self.state_manager = state_manager
 
     def write(self, target_file: str, content: str):
         """Writes markdown content to disk, optionally adding a footer."""

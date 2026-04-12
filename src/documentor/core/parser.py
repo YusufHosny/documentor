@@ -18,6 +18,13 @@ class Parser:
 
         return pathspec.PathSpec.from_lines('gitignore', patterns)
 
+    def is_ignored(self, path: str) -> bool:
+        reasons = [
+                self.ignore_spec.match_file(path), # matches ignore spec
+                os.path.isfile(path) and os.path.getsize(path) <= self.config.ignore_above_size_kb * 1024 # exceeds ignore threshold
+        ]
+        return any(reasons)
+
     def extract_context(self, target: Optional[str] = None) -> List[Dict[str, str]]:
         """Extracts file content for LLM context, respecting ignore patterns."""
         context = []
@@ -39,10 +46,7 @@ class Parser:
             for file in files:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, base_dir)
-
-                not_ignored = not self.ignore_spec.match_file(rel_path)
-                not_too_large = os.path.getsize(file_path) <= self.config.ignore_above_size_kb * 1024
-                if not_ignored and not_too_large:
+                if not self.is_ignored(rel_path):
                     content = self.read_file(file_path)
                     if content is not None:
                         context.append({"path": rel_path, "content": content})
@@ -68,8 +72,7 @@ class Parser:
             for file in files:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, base_dir)
-
-                if not self.ignore_spec.match_file(rel_path):
+                if not self.is_ignored(rel_path):
                     try:
                         total_size_bytes += os.path.getsize(file_path)
                     except OSError:

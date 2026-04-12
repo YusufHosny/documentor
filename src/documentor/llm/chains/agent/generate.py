@@ -44,9 +44,11 @@ def _prepare_agent_generate_chain_and_inputs(
     return agent, {"messages": [HumanMessage(content=user_input)]}, refine_chain
 
 
-def agent_generate_docs(config: Config, docs_to_generate: List[DocItem]) -> List[str]:
+def agent_generate_docs(
+    config: Config, state_manager: Any, docs_to_generate: List[DocItem]
+) -> List[str]:
     """Generates documentation by dynamically exploring the codebase for each document."""
-    writer = Writer(config)
+    writer = Writer(config, state_manager)
     generated_files = []
 
     for doc in docs_to_generate:
@@ -55,7 +57,9 @@ def agent_generate_docs(config: Config, docs_to_generate: List[DocItem]) -> List
         )
         result = agent.invoke(inputs)
         content = result["messages"][-1].content
-        final_content = refine_chain.invoke({"system_msg": get_refine_prompt(), "content": content})
+        final_content = refine_chain.invoke(
+            {"system_msg": get_refine_prompt(), "content": content}
+        )
 
         final_path = writer.write(doc.filename, final_content)
         generated_files.append(final_path)
@@ -64,10 +68,10 @@ def agent_generate_docs(config: Config, docs_to_generate: List[DocItem]) -> List
 
 
 async def async_agent_generate_docs(
-    config: Config, docs_to_generate: List[DocItem]
+    config: Config, state_manager: Any, docs_to_generate: List[DocItem]
 ) -> List[str]:
     """Generates documentation by dynamically exploring the codebase for each document asynchronously."""
-    writer = Writer(config)
+    writer = Writer(config, state_manager)
 
     async def _generate_single(doc: DocItem) -> str:
         agent, inputs, refine_chain = _prepare_agent_generate_chain_and_inputs(
@@ -75,7 +79,9 @@ async def async_agent_generate_docs(
         )
         result = await agent.ainvoke(inputs)
         content = result["messages"][-1].content
-        final_content = await refine_chain.ainvoke({"system_msg": get_refine_prompt(), "content": content})
+        final_content = await refine_chain.ainvoke(
+            {"system_msg": get_refine_prompt(), "content": content}
+        )
         return writer.write(doc.filename, final_content)
 
     tasks = [_generate_single(doc) for doc in docs_to_generate]

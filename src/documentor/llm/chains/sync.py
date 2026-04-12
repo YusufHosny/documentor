@@ -14,20 +14,20 @@ def _prepare_sync_chain_and_inputs(
     llm = get_llm(config)
 
     system_msg = get_system_prompt(
-        context_instruction="",
-        style_guide=config.get_style_guide()
+        context_instruction="", style_guide=config.get_style_guide()
     )
     user_msg = get_user_prompt(
-        diff_content=f"The following changes were detected in the source code:\n{diff}" if diff else "",
+        diff_content=f"The following changes were detected in the source code:\n{diff}"
+        if diff
+        else "",
         current_content=current_content,
         context_content=f"New Project Context:\n{context_str}",
-        agent_instruction=""
+        agent_instruction="",
     )
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "{system_msg}"),
-        ("user", "{user_msg}")
-    ])
+    prompt = ChatPromptTemplate.from_messages(
+        [("system", "{system_msg}"), ("user", "{user_msg}")]
+    )
     chain = retryable(prompt | llm | StrOutputParser())
 
     return chain, {"system_msg": system_msg, "user_msg": user_msg}
@@ -60,12 +60,15 @@ async def async_sync_doc(
 
 
 async def async_sync_docs(
-    context: List[Dict[str, str]], config: Config, docs_to_sync: List[Dict[str, Any]]
+    context: List[Dict[str, str]],
+    config: Config,
+    state_manager: Any,
+    docs_to_sync: List[Dict[str, Any]],
 ) -> List[str]:
     """Updates multiple documents in parallel based on changes in the source code context."""
     from documentor.core.writer import Writer
 
-    writer = Writer(config)
+    writer = Writer(config, state_manager)
     context_str = "\n\n".join(
         [f"--- File: {f['path']} ---\n{f['content']}" for f in context]
     )

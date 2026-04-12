@@ -40,6 +40,12 @@ app = typer.Typer(
 )
 console = Console()
 
+config_manager = ConfigManager()
+config = config_manager.load_config()
+state_manager = StateManager(config)
+parser = Parser(config)
+writer = Writer(config, state_manager)
+
 
 def version_callback(value: bool):
     if value:
@@ -89,11 +95,6 @@ def should_use_agent(config: Config, parser: Parser) -> bool:
 def plan():
     """Analyzes the project context and suggests a list of documentation files to be managed."""
     console.print("[blue]Planning your documentation...[/blue]")
-    config_manager = ConfigManager()
-    config = config_manager.load_config()
-
-    parser = Parser(config)
-    state_manager = StateManager(config)
 
     existing_docs = [
         DocItem(filename=os.path.basename(str(ds.filepath)), description=ds.description)
@@ -138,10 +139,9 @@ def plan():
 @app.command()
 def init():
     """Interactive setup to initialize documentor configuration."""
+    global config, state_manager, parser, writer
     console.print("[blue]Welcome to Documentor![/blue]")
 
-    config_manager = ConfigManager()
-    state_manager = StateManager(config_manager.load_config())
     if config_manager.config_exists() or state_manager.statefile_exists():
         overwrite = handle_cancel(
             questionary.confirm(
@@ -270,6 +270,11 @@ def init():
     config = Config(**config_data)
     config_manager.save_config(config)
 
+    # Re-initialize globals with the new config
+    state_manager = StateManager(config)
+    parser = Parser(config)
+    writer = Writer(config, state_manager)
+
     console.print("[green]Created documentor.yaml successfully![/green]")
 
     # style.md setup
@@ -315,10 +320,6 @@ def init():
 
     # plan setup (documentor plan)
     console.print("[blue]Analyzing project context to generate plan...[/blue]")
-    parser = Parser(config)
-
-    # After saving config, state_manager is using the new config
-    state_manager = StateManager(config)
     existing_docs = []
 
     if should_use_agent(config, parser):
@@ -352,11 +353,7 @@ def generate(
         help="Force regeneration of all documentation, ignoring tracking state",
     ),
 ):
-    """On-demand generation based on documentor-lock.yaml."""
-    config_manager = ConfigManager()
-    config = config_manager.load_config()
-    state_manager = StateManager(config)
-
+    """Generate documentation using LLMs"""
     if not state_manager.state.managed_docs:
         console.print(
             "[yellow]No documentation files defined in documentor-lock.yaml.[/yellow]"
@@ -365,8 +362,6 @@ def generate(
             "[blue]Try running `documentor plan` to automatically suggest documentation files.[/blue]"
         )
         return
-
-    parser = Parser(config)
 
     docs_to_generate = []
     managed_docs_items = [
@@ -393,7 +388,7 @@ def generate(
             f"[blue]Generating {len(docs_to_generate)} documentation files using agent mode in parallel...[/blue]"
         )
         generated_files = asyncio.run(
-            async_agent_generate_docs(config, docs_to_generate)
+            async_agent_generate_docs(config, state_manager, docs_to_generate)
         )
     else:
         console.print(
@@ -401,7 +396,7 @@ def generate(
         )
         context = parser.extract_context()
         generated_files = asyncio.run(
-            async_generate_docs(context, config, docs_to_generate)
+            async_generate_docs(context, config, state_manager, docs_to_generate)
         )
 
     for file_path in generated_files:
@@ -412,10 +407,8 @@ def generate(
 
 @app.command()
 def edit(target_file: str):
-    """Iterates on an existing markdown document using AI based on user comments."""
+    """Iterates on an existing markdown document using an LLM based on user comments."""
     console.print(f"[blue]Editing {target_file}...[/blue]")
-    config_manager = ConfigManager()
-    config = config_manager.load_config()
 
     if not os.path.exists(target_file):
         console.print(f"[red]Error: {target_file} not found.[/red]")
@@ -426,16 +419,13 @@ def edit(target_file: str):
     with open(target_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    parser = Parser(config)
     if should_use_agent(config, parser):
         new_content = agent_edit_doc(content, comments, config)
     else:
         new_content = edit_doc(content, comments, config)
 
-    writer = Writer(config)
     final_path = writer.write(target_file, new_content)
 
-    state_manager = StateManager(config)
     state_manager.upsert_doc(filepath=Path(final_path))
 
     console.print(f"[green]Successfully edited {target_file}![/green]")
@@ -443,16 +433,13 @@ def edit(target_file: str):
 
 @app.command()
 def expand(target_file: str):
-    """Turns scrappy bullet points into a coherent, well-formatted document using AI inference for metadata."""
+    """Turns scrappy bullet points into a coherent, well-formatted document using an LLM."""
     console.print(f"[blue]Expanding {target_file}...[/blue]")
-    config_manager = ConfigManager()
-    config = config_manager.load_config()
 
     if not os.path.exists(target_file):
         console.print(f"[red]Error: {target_file} not found.[/red]")
         raise typer.Exit(1)
 
-    parser = Parser(config)
     filename = os.path.basename(target_file)
 
     if should_use_agent(config, parser):
@@ -471,10 +458,7 @@ def expand(target_file: str):
     else:
         new_content = expand_doc(content, doc_info.description, config)
 
-    writer = Writer(config)
     final_path = writer.write(target_file, new_content)
-
-    state_manager = StateManager(config)
 
     existing_filenames = {
         os.path.basename(str(ds.filepath)).lower()
@@ -503,16 +487,12 @@ def add(
         help="Optional description for the added documentation file.",
     ),
 ):
-    """Adds an existing documentation file to the config and lockfile."""
+    """Adds an existing documentation file to documentor tracking."""
     console.print(f"[blue]Adding {target_file} to tracking...[/blue]")
-    config_manager = ConfigManager()
-    config = config_manager.load_config()
 
     if not os.path.exists(target_file):
         console.print(f"[red]Error: {target_file} not found.[/red]")
         raise typer.Exit(1)
-
-    state_manager = StateManager(config)
 
     filename = os.path.basename(target_file)
     existing_filenames = {
@@ -538,10 +518,7 @@ def add(
 def sync():
     """Syncs existing documentation with current source code state."""
     console.print("[blue]Syncing documentation...[/blue]")
-    config_manager = ConfigManager()
-    config = config_manager.load_config()
 
-    state_manager = StateManager(config)
     stale_docs = state_manager.get_stale_docs()
 
     if not stale_docs:
@@ -552,7 +529,6 @@ def sync():
         f"[yellow]Found {len(stale_docs)} stale documents. Syncing...[/yellow]"
     )
 
-    parser = Parser(config)
     use_agent = should_use_agent(config, parser)
 
     docs_to_sync = []
@@ -604,13 +580,17 @@ def sync():
             console.print(
                 f"[blue]Syncing {len(docs_to_sync)} documentation files using agent mode in parallel...[/blue]"
             )
-            final_paths = asyncio.run(async_agent_sync_docs(config, docs_to_sync))
+            final_paths = asyncio.run(
+                async_agent_sync_docs(config, state_manager, docs_to_sync)
+            )
         else:
             console.print(
                 f"[blue]Syncing {len(docs_to_sync)} documentation files in parallel...[/blue]"
             )
             context = parser.extract_context()
-            final_paths = asyncio.run(async_sync_docs(context, config, docs_to_sync))
+            final_paths = asyncio.run(
+                async_sync_docs(context, config, state_manager, docs_to_sync)
+            )
 
         # Update states
         for i, doc_data in enumerate(docs_to_sync):
