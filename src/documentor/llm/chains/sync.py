@@ -4,7 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from documentor.core.config import Config
 from documentor.llm.client import get_llm, retryable
-from documentor.llm.prompts import get_prompt_parts
+from documentor.llm.prompts.sync import get_system_prompt, get_user_prompt
 
 
 def _prepare_sync_chain_and_inputs(
@@ -13,27 +13,24 @@ def _prepare_sync_chain_and_inputs(
     """Helper to prepare the LangChain chain and inputs for sync."""
     llm = get_llm(config)
 
-    prompts = get_prompt_parts("sync")
+    system_msg = get_system_prompt(
+        context_instruction="",
+        style_guide=config.get_style_guide()
+    )
+    user_msg = get_user_prompt(
+        diff_content=f"The following changes were detected in the source code:\n{diff}" if diff else "",
+        current_content=current_content,
+        context_content=f"New Project Context:\n{context_str}",
+        agent_instruction=""
+    )
 
-    prompt_messages = [
-        ("system", prompts["system_prompt"]),
-        ("user", prompts["user_prompt"]),
-    ]
-
-    prompt = ChatPromptTemplate.from_messages(prompt_messages)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "{system_msg}"),
+        ("user", "{user_msg}")
+    ])
     chain = retryable(prompt | llm | StrOutputParser())
 
-    inputs = {
-        "context_instruction": "",
-        "style_guide": config.get_style_guide(),
-        "diff_content": f"The following changes were detected in the source code:\n{diff}"
-        if diff
-        else "",
-        "current_content": current_content,
-        "context_content": f"New Project Context:\n{context_str}",
-        "agent_instruction": "",
-    }
-    return chain, inputs
+    return chain, {"system_msg": system_msg, "user_msg": user_msg}
 
 
 def sync_doc(
@@ -74,7 +71,7 @@ async def async_sync_docs(
     )
 
     async def _sync_single(doc_data: Dict[str, Any]) -> str:
-        doc_path = doc_data["doc_path"]
+        filepath = doc_data["filepath"]
         current_content = doc_data["current_content"]
         diff = doc_data.get("diff")
 
@@ -82,7 +79,7 @@ async def async_sync_docs(
             current_content, context_str, config, diff
         )
         new_content = await chain.ainvoke(inputs)
-        return writer.write(str(doc_path), new_content)
+        return writer.write(str(filepath), new_content)
 
     tasks = [_sync_single(d) for d in docs_to_sync]
     return await asyncio.gather(*tasks)

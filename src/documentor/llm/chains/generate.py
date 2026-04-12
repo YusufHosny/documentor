@@ -5,7 +5,7 @@ from langchain_core.output_parsers import StrOutputParser
 from documentor.core.config import Config, DocItem
 from documentor.llm.client import get_llm, retryable
 from documentor.core.writer import Writer
-from documentor.llm.prompts import get_prompt_parts
+from documentor.llm.prompts.generate import get_system_prompt, get_user_prompt
 
 
 def _prepare_generate_chain_and_inputs(
@@ -13,21 +13,25 @@ def _prepare_generate_chain_and_inputs(
 ) -> Tuple[Any, Dict[str, Any]]:
     """Helper to prepare the LangChain chain and inputs for doc generation."""
     llm = get_llm(config)
-    prompts = get_prompt_parts("generate")
-    prompt = ChatPromptTemplate.from_messages(
-        [("system", prompts["system_prompt"]), ("user", prompts["user_prompt"])]
+
+    system_msg = get_system_prompt(
+        context_instruction="Use the provided context as your source of truth.",
+        style_guide=config.get_style_guide()
     )
+    user_msg = get_user_prompt(
+        context_content=f"Here is the project context:\n{context_str}",
+        filename=doc.filename,
+        description=doc.description,
+        agent_instruction=""
+    )
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "{system_msg}"),
+        ("user", "{user_msg}")
+    ])
     chain = retryable(prompt | llm | StrOutputParser())
 
-    inputs = {
-        "context_instruction": "Use the provided context as your source of truth.",
-        "style_guide": config.get_style_guide(),
-        "context_content": f"Here is the project context:\n{context_str}",
-        "filename": doc.filename,
-        "description": doc.description,
-        "agent_instruction": "",
-    }
-    return chain, inputs
+    return chain, {"system_msg": system_msg, "user_msg": user_msg}
 
 
 def generate_docs(

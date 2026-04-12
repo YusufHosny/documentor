@@ -22,7 +22,7 @@ class Writer:
 
         # check for any doc links and adjust path
         for ds in self.state_manager.state.managed_docs:
-            filename = os.path.basename(str(ds.doc_path))
+            filename = os.path.basename(str(ds.filepath))
             safe_docs_dir = regex.escape(config_docs_dir)
             replacement = f"{config_docs_dir}/{filename}".replace("\\", "/")
             pattern = rf"(?<!{safe_docs_dir}[/\\]){regex.escape(filename)}"

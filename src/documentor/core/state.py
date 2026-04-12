@@ -11,7 +11,7 @@ from documentor.core.config import Config
 
 
 class PersistedDocState(BaseModel):
-    doc_path: str
+    filepath: str = Field(validation_alias="filepath", default="")
     description: str = Field(default="")
     tracking_type: Literal["file", "project"]
     source_refs: List[str]
@@ -20,13 +20,13 @@ class PersistedDocState(BaseModel):
 
     def to_ds(self):
         kwargs = self.model_dump()
-        kwargs["doc_path"] = Path(kwargs["doc_path"].replace("\\", "/"))
+        kwargs["filepath"] = Path(kwargs["filepath"].replace("\\", "/"))
         ds = DocState(**kwargs)
         return ds
 
 
 class DocState(BaseModel):
-    doc_path: Path
+    filepath: Path
     description: str = Field(default="")
     tracking_type: Literal["file", "project"]
     source_refs: List[str]
@@ -35,7 +35,7 @@ class DocState(BaseModel):
 
     def to_pds(self):
         kwargs = self.model_dump()
-        kwargs["doc_path"] = str(kwargs["doc_path"])
+        kwargs["filepath"] = str(kwargs["filepath"])
         pds = PersistedDocState(**kwargs)
         return pds
 
@@ -183,9 +183,9 @@ class StateManager:
             hasher.update(item["content"].encode("utf-8"))
         return hasher.hexdigest()
 
-    def update_doc_state(
+    def upsert_doc(
         self,
-        doc_path: Path,
+        filepath: Path,
         description: Optional[str] = None,
         tracking_type: Optional[Literal["file", "project"]] = None,
         source_refs: Optional[List[str]] = None,
@@ -196,7 +196,7 @@ class StateManager:
         )
 
         existing_doc = next(
-            (ds for ds in self.state.managed_docs if ds.doc_path == doc_path), None
+            (ds for ds in self.state.managed_docs if ds.filepath == filepath), None
         )
         if existing_doc:
             description = (
@@ -214,7 +214,7 @@ class StateManager:
             source_refs = source_refs or ["."]
 
         new_doc_state = DocState(
-            doc_path=doc_path,
+            filepath=filepath,
             description=description,
             tracking_type=tracking_type,
             source_refs=source_refs,
@@ -223,7 +223,7 @@ class StateManager:
         )
 
         for i, ds in enumerate(self.state.managed_docs):
-            if ds.doc_path == doc_path:
+            if ds.filepath == filepath:
                 self.state.managed_docs[i] = new_doc_state
                 break
         else:

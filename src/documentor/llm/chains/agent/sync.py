@@ -6,7 +6,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from documentor.core.config import Config
 from documentor.llm.client import get_llm
-from documentor.llm.prompts import get_prompt_parts
+from documentor.llm.prompts.sync import get_system_prompt, get_user_prompt
+from documentor.llm.prompts.common import get_refine_prompt
 from .tools import get_tools
 
 
@@ -17,10 +18,7 @@ def _prepare_agent_sync_chain_and_inputs(
     llm = get_llm(config)
     tools = get_tools(config)
 
-    prompts = get_prompt_parts("sync")
-    common_prompts = get_prompt_parts("common")
-
-    system_message = prompts["system_prompt"].format(
+    system_message = get_system_prompt(
         context_instruction="You can explore the codebase to see what changed using the provided tools.",
         style_guide=config.get_style_guide(),
     )
@@ -32,9 +30,7 @@ def _prepare_agent_sync_chain_and_inputs(
 
     agent = create_retryable_agent(llm, tools, system_prompt=system_message)
 
-    user_input = prompts[
-        "user_prompt"
-    ].format(
+    user_input = get_user_prompt(
         diff_content="",  # already in system message or not needed separately if integrated
         current_content=current_content,
         context_content="",
@@ -43,7 +39,7 @@ def _prepare_agent_sync_chain_and_inputs(
 
     refine_prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", common_prompts["refine_prompt"]),
+            ("system", "{system_msg}"),
             ("user", "Updated Content:\n{content}"),
         ]
     )
@@ -61,7 +57,7 @@ def agent_sync_doc(
     )
     result = agent.invoke(inputs)
     content = result["messages"][-1].content
-    return refine_chain.invoke({"content": content})
+    return refine_chain.invoke({"system_msg": get_refine_prompt(), "content": content})
 
 
 async def async_agent_sync_doc(
@@ -73,7 +69,7 @@ async def async_agent_sync_doc(
     )
     result = await agent.ainvoke(inputs)
     content = result["messages"][-1].content
-    return await refine_chain.ainvoke({"content": content})
+    return await refine_chain.ainvoke({"system_msg": get_refine_prompt(), "content": content})
 
 
 async def async_agent_sync_docs(
@@ -85,12 +81,12 @@ async def async_agent_sync_docs(
     writer = Writer(config)
 
     async def _sync_single(doc_data: Dict[str, Any]) -> str:
-        doc_path = doc_data["doc_path"]
+        filepath = doc_data["filepath"]
         current_content = doc_data["current_content"]
         diff = doc_data.get("diff")
 
         new_content = await async_agent_sync_doc(current_content, config, diff)
-        return writer.write(str(doc_path), new_content)
+        return writer.write(str(filepath), new_content)
 
     tasks = [_sync_single(d) for d in docs_to_sync]
     return await asyncio.gather(*tasks)

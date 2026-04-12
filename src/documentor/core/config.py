@@ -28,12 +28,8 @@ class Config(BaseModel):
         default=False, description="Append footer to generated markdown"
     )
 
-    use_style_md: bool = Field(
-        default=False,
-        description="Whether to use the style.md file for formatting instructions when generating docs",
-    )
-    style_md_path: str = Field(
-        default="docs/style.md",
+    style_md_path: Optional[str] = Field(
+        default="",
         description="Path to style.md file for formatting instructions",
     )
     use_git: bool = Field(
@@ -60,26 +56,22 @@ class Config(BaseModel):
         description="Patterns to ignore when scanning project",
     )
 
-    use_agent: bool = Field(
-        default=False, description="Enable agent-based dynamic context extraction"
-    )
     agent_threshold_kb: int = Field(
         default=1000,
-        description="Threshold in KB above which agent mode is automatically used",
+        description="Threshold in KB above which agent mode is automatically used. 0=always, -1=never.",
     )
     # TODO: semantically ignore files with llm/vectorsearch
 
     # -------------------------- config helpers --------------------------
     def get_style_guide(self) -> str:
         """Loads the user's style guide if it exists, otherwise returns an empty string."""
-        style_path = self.style_md_path or os.path.join(
-            self.docs_dir or "docs", "style.md"
-        )
-        if os.path.exists(style_path):
-            with open(style_path, "r", encoding="utf-8") as f:
-                return f.read()
-        else:
+        if not self.style_md_path:
             return ""
+
+        if os.path.exists(self.style_md_path):
+            with open(self.style_md_path, "r", encoding="utf-8") as f:
+                return f.read()
+        return ""
 
 
 class ConfigManager:

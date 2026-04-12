@@ -69,7 +69,7 @@ def handle_cancel(val):
 
 def should_use_agent(config: Config, parser: Parser) -> bool:
     """Centralized logic to decide if agent mode should be used."""
-    if config.use_agent:
+    if config.agent_threshold_kb == 0:
         return True
 
     if config.agent_threshold_kb == -1:
@@ -96,7 +96,7 @@ def plan():
     state_manager = StateManager(config)
 
     existing_docs = [
-        DocItem(filename=os.path.basename(str(ds.doc_path)), description=ds.description)
+        DocItem(filename=os.path.basename(str(ds.filepath)), description=ds.description)
         for ds in state_manager.state.managed_docs
     ]
 
@@ -122,8 +122,8 @@ def plan():
     )
     if confirm:
         for doc in suggested_files:
-            state_manager.update_doc_state(
-                doc_path=Path(os.path.join(config.docs_dir, doc.filename)),
+            state_manager.upsert_doc(
+                filepath=Path(os.path.join(config.docs_dir, doc.filename)),
                 description=doc.description,
             )
     else:
@@ -187,18 +187,12 @@ def init():
     )
 
     # style md setup
-    config_data["use_style_md"] = handle_cancel(
-        questionary.confirm(
-            "Use a style.md file for formatting instructions?", default=True
+    config_data["style_md_path"] = handle_cancel(
+        questionary.text(
+            "Enter the path to use for style.md (leave empty to skip):",
+            default=f"{config_data.get('docs_dir', 'docs')}/style.md",
         ).ask()
-    )
-    if config_data["use_style_md"]:
-        config_data["style_md_path"] = handle_cancel(
-            questionary.text(
-                "Enter the path to use for style.md:",
-                default=f"{config_data.get('docs_dir', 'docs')}/style.md",
-            ).ask()
-        )
+    ).strip()
 
     # llm setup
     default_model = handle_cancel(
@@ -259,8 +253,9 @@ def init():
         ).ask()
     )
 
-    config_data["use_agent"] = agent_choice == "always"
-    if agent_choice == "threshold":
+    if agent_choice == "always":
+        config_data["agent_threshold_kb"] = 0
+    elif agent_choice == "threshold":
         threshold_str = handle_cancel(
             questionary.text(
                 "Threshold in KB for automatic agent mode:", default="1000"
@@ -279,7 +274,7 @@ def init():
 
     # style.md setup
     # TODO style md generation with questionnaire
-    if config.use_style_md:
+    if config.style_md_path:
         create_style = handle_cancel(
             questionary.confirm(
                 f"Do you want to create and initialize {config.style_md_path}?",
@@ -338,8 +333,8 @@ def init():
 
     if suggested_files:
         for doc in suggested_files:
-            state_manager.update_doc_state(
-                doc_path=Path(os.path.join(config.docs_dir, doc.filename)),
+            state_manager.upsert_doc(
+                filepath=Path(os.path.join(config.docs_dir, doc.filename)),
                 description=doc.description,
             )
 
@@ -375,7 +370,7 @@ def generate(
 
     docs_to_generate = []
     managed_docs_items = [
-        DocItem(filename=os.path.basename(str(ds.doc_path)), description=ds.description)
+        DocItem(filename=os.path.basename(str(ds.filepath)), description=ds.description)
         for ds in state_manager.state.managed_docs
     ]
 
@@ -383,10 +378,10 @@ def generate(
         docs_to_generate = managed_docs_items
         console.print("[blue]Force regenerating all documentation...[/blue]")
     else:
-        stale_docs = {str(ds.doc_path) for ds in state_manager.get_stale_docs()}
+        stale_docs = {str(ds.filepath) for ds in state_manager.get_stale_docs()}
         for doc in managed_docs_items:
-            doc_path = os.path.join(config.docs_dir, doc.filename)
-            if not os.path.exists(doc_path) or doc_path in stale_docs:
+            filepath = os.path.join(config.docs_dir, doc.filename)
+            if not os.path.exists(filepath) or filepath in stale_docs:
                 docs_to_generate.append(doc)
 
     if not docs_to_generate:
@@ -410,7 +405,7 @@ def generate(
         )
 
     for file_path in generated_files:
-        state_manager.update_doc_state(doc_path=Path(file_path))
+        state_manager.upsert_doc(filepath=Path(file_path))
 
     console.print("[green]Generation complete![/green]")
 
@@ -441,7 +436,7 @@ def edit(target_file: str):
     final_path = writer.write(target_file, new_content)
 
     state_manager = StateManager(config)
-    state_manager.update_doc_state(doc_path=Path(final_path))
+    state_manager.upsert_doc(filepath=Path(final_path))
 
     console.print(f"[green]Successfully edited {target_file}![/green]")
 
@@ -482,24 +477,32 @@ def expand(target_file: str):
     state_manager = StateManager(config)
 
     existing_filenames = {
-        os.path.basename(str(ds.doc_path)).lower()
+        os.path.basename(str(ds.filepath)).lower()
         for ds in state_manager.state.managed_docs
     }
     if (
         filename.lower() not in existing_filenames
         and target_file.lower() not in existing_filenames
     ):
-        state_manager.update_doc_state(
-            doc_path=Path(final_path), description=doc_info.description
+        state_manager.upsert_doc(
+            filepath=Path(final_path), description=doc_info.description
         )
     else:
-        state_manager.update_doc_state(doc_path=Path(final_path))
+        state_manager.upsert_doc(filepath=Path(final_path))
 
     console.print(f"[green]Successfully expanded {target_file}![/green]")
 
 
 @app.command()
-def add(target_file: str):
+def add(
+    target_file: str,
+    description: Optional[str] = typer.Option(
+        None,
+        "-d",
+        "--description",
+        help="Optional description for the added documentation file.",
+    ),
+):
     """Adds an existing documentation file to the config and lockfile."""
     console.print(f"[blue]Adding {target_file} to tracking...[/blue]")
     config_manager = ConfigManager()
@@ -513,20 +516,20 @@ def add(target_file: str):
 
     filename = os.path.basename(target_file)
     existing_filenames = {
-        os.path.basename(str(ds.doc_path)).lower()
+        os.path.basename(str(ds.filepath)).lower()
         for ds in state_manager.state.managed_docs
     }
 
     if filename.lower() not in existing_filenames:
-        state_manager.update_doc_state(
-            doc_path=Path(target_file),
-            description="Manually added documentation file",
+        state_manager.upsert_doc(
+            filepath=Path(target_file),
+            description=description or "Manually added documentation file",
         )
         console.print(
             f"[green]Added {filename} to managed docs in documentor-lock.yaml[/green]"
         )
     else:
-        state_manager.update_doc_state(doc_path=Path(target_file))
+        state_manager.upsert_doc(filepath=Path(target_file), description=description)
 
     console.print(f"[green]Successfully added {target_file} to tracking![/green]")
 
@@ -554,11 +557,11 @@ def sync():
 
     docs_to_sync = []
     for ds in stale_docs:
-        if not os.path.exists(ds.doc_path):
-            console.print(f"[red]Warning: {ds.doc_path} not found. Skipping.[/red]")
+        if not os.path.exists(ds.filepath):
+            console.print(f"[red]Warning: {ds.filepath} not found. Skipping.[/red]")
             continue
 
-        with open(ds.doc_path, "r", encoding="utf-8") as f:
+        with open(ds.filepath, "r", encoding="utf-8") as f:
             current_content = f.read()
 
         diff = None
@@ -589,7 +592,7 @@ def sync():
 
         docs_to_sync.append(
             {
-                "doc_path": ds.doc_path,
+                "filepath": ds.filepath,
                 "current_content": current_content,
                 "diff": diff,
                 "stale_doc_state": ds,
@@ -613,8 +616,8 @@ def sync():
         for i, doc_data in enumerate(docs_to_sync):
             ds = doc_data["stale_doc_state"]
             final_path = final_paths[i]
-            state_manager.update_doc_state(
-                doc_path=Path(final_path),
+            state_manager.upsert_doc(
+                filepath=Path(final_path),
                 tracking_type=ds.tracking_type,
                 source_refs=ds.source_refs,
             )
