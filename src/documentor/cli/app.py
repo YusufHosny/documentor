@@ -13,7 +13,7 @@ from documentor.llm.chains import (
     expand_doc,
     async_sync_docs,
     generate_plan,
-    infer_doc_info
+    infer_doc_info,
 )
 from documentor.llm.chains.agent import (
     async_agent_generate_docs,
@@ -21,7 +21,7 @@ from documentor.llm.chains.agent import (
     agent_expand_doc,
     async_agent_sync_docs,
     agent_generate_plan,
-    agent_infer_doc_info
+    agent_infer_doc_info,
 )
 from documentor.core.parser import Parser
 from documentor.core.writer import Writer
@@ -32,15 +32,20 @@ __version__ = "1.0.0"
 env_file = os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env")
 if os.path.exists(env_file):
     from dotenv import load_dotenv
+
     load_dotenv(env_file)
 
-app = typer.Typer(help="Documentor: A CLI tool for automatic documentation generation and management")
+app = typer.Typer(
+    help="Documentor: A CLI tool for automatic documentation generation and management"
+)
 console = Console()
+
 
 def version_callback(value: bool):
     if value:
         console.print(f"Documentor version: {__version__}")
         raise typer.Exit()
+
 
 @app.callback()
 def main(
@@ -50,15 +55,17 @@ def main(
         callback=version_callback,
         is_eager=True,
         help="Show the application's version and exit.",
-    )
+    ),
 ):
     pass
+
 
 def handle_cancel(val):
     if val is None:
         console.print("[red]Initialization cancelled by user.[/red]")
         raise typer.Exit(1)
     return val
+
 
 def should_use_agent(config: Config, parser: Parser) -> bool:
     """Centralized logic to decide if agent mode should be used."""
@@ -70,10 +77,13 @@ def should_use_agent(config: Config, parser: Parser) -> bool:
 
     total_size = parser.get_total_context_size_kb()
     if total_size > config.agent_threshold_kb:
-        console.print(f"[yellow]Project size ({total_size}KB) exceeds agent threshold ({config.agent_threshold_kb}KB). Switching to agent mode.[/yellow]")
+        console.print(
+            f"[yellow]Project size ({total_size}KB) exceeds agent threshold ({config.agent_threshold_kb}KB). Switching to agent mode.[/yellow]"
+        )
         return True
 
     return False
+
 
 @app.command()
 def plan():
@@ -83,12 +93,18 @@ def plan():
     config = config_manager.load_config()
 
     parser = Parser(config)
+    state_manager = StateManager(config)
+
+    existing_docs = [
+        DocItem(filename=os.path.basename(str(ds.doc_path)), description=ds.description)
+        for ds in state_manager.state.managed_docs
+    ]
 
     if should_use_agent(config, parser):
-        suggested_files = agent_generate_plan(config)
+        suggested_files = agent_generate_plan(config, existing_docs)
     else:
         context = parser.extract_context()
-        suggested_files = generate_plan(context, config)
+        suggested_files = generate_plan(context, config, existing_docs)
 
     if not suggested_files:
         console.print("[yellow]No new documentation files suggested.[/yellow]")
@@ -96,17 +112,28 @@ def plan():
 
     console.print("\n[blue]Suggested Documentation Files:[/blue]")
     for doc in suggested_files:
-        console.print(f"- [cyan]{doc.filename}[/cyan] ({doc.type}): {doc.description}")
+        console.print(f"- [cyan]{doc.filename}[/cyan]: {doc.description}")
 
-    confirm = handle_cancel(questionary.confirm("Do you want to add these suggestions to your required files?", default=True).ask())
+    confirm = handle_cancel(
+        questionary.confirm(
+            "Do you want to add these suggestions to your tracked documentation files?",
+            default=True,
+        ).ask()
+    )
     if confirm:
-        config.required_files = suggested_files
+        for doc in suggested_files:
+            state_manager.update_doc_state(
+                doc_path=Path(os.path.join(config.docs_dir, doc.filename)),
+                description=doc.description,
+            )
     else:
         console.print("[yellow]Planning cancelled.[/yellow]")
         return
 
-    config_manager.save_config(config)
-    console.print("[green]Updated documentor.yaml with the new documentation plan![/green]")
+    console.print(
+        "[green]Updated documentor-lock.yaml with the new documentation plan![/green]"
+    )
+
 
 @app.command()
 def init():
@@ -116,63 +143,132 @@ def init():
     config_manager = ConfigManager()
     state_manager = StateManager(config_manager.load_config())
     if config_manager.config_exists() or state_manager.statefile_exists():
-        overwrite = handle_cancel(questionary.confirm("It seems this project was already initialized. Do you want to clear the existing configuration and start over?", default=False).ask())
+        overwrite = handle_cancel(
+            questionary.confirm(
+                "It seems this project was already initialized. Do you want to clear the existing configuration and start over?",
+                default=False,
+            ).ask()
+        )
         if not overwrite:
-            console.print("[yellow]Initialization cancelled to prevent overwriting existing config.[/yellow]")
+            console.print(
+                "[yellow]Initialization cancelled to prevent overwriting existing config.[/yellow]"
+            )
             raise typer.Exit(0)
         else:
             config_manager.clear_config()
             state_manager.clear_statefile()
-            console.print("[green]Existing configuration cleared. Starting fresh initialization.[/green]")
+            console.print(
+                "[green]Existing configuration cleared. Starting fresh initialization.[/green]"
+            )
 
     config_data = {}
 
     # choose doc directory
-    default_output = handle_cancel(questionary.confirm("Use default output settings (docs directory, no footer)?", default=True).ask())
+    default_output = handle_cancel(
+        questionary.confirm(
+            "Use default output settings (docs directory, no footer)?", default=True
+        ).ask()
+    )
     if not default_output:
-        config_data["docs_dir"] = handle_cancel(questionary.text("Enter output directory for docs:", default="docs").ask())
-        config_data["include_footer"] = handle_cancel(questionary.confirm("Include 'Generated by Documentor' footer in markdown?", default=False).ask())
+        config_data["docs_dir"] = handle_cancel(
+            questionary.text("Enter output directory for docs:", default="docs").ask()
+        )
+        config_data["include_footer"] = handle_cancel(
+            questionary.confirm(
+                "Include 'Generated by Documentor' footer in markdown?", default=False
+            ).ask()
+        )
 
     # tracking options
-    config_data["use_git"] = handle_cancel(questionary.confirm("Use git-based tracking for incremental updates?", default=True).ask())
+    config_data["use_git"] = handle_cancel(
+        questionary.confirm(
+            "Use git-based tracking for incremental updates?", default=True
+        ).ask()
+    )
 
     # style md setup
-    config_data["use_style_md"] = handle_cancel(questionary.confirm("Use a style.md file for formatting instructions?", default=True).ask())
+    config_data["use_style_md"] = handle_cancel(
+        questionary.confirm(
+            "Use a style.md file for formatting instructions?", default=True
+        ).ask()
+    )
     if config_data["use_style_md"]:
-        config_data["style_md_path"] = handle_cancel(questionary.text("Enter the path to use for style.md:", default=f"{config_data.get('docs_dir', 'docs')}/style.md").ask())
+        config_data["style_md_path"] = handle_cancel(
+            questionary.text(
+                "Enter the path to use for style.md:",
+                default=f"{config_data.get('docs_dir', 'docs')}/style.md",
+            ).ask()
+        )
 
     # llm setup
-    default_model = handle_cancel(questionary.confirm("Use default model (Google Vertex AI with gemini-3.1-pro)?", default=True).ask())
+    default_model = handle_cancel(
+        questionary.confirm(
+            "Use default model (Google Vertex AI with gemini-3.1-pro)?", default=True
+        ).ask()
+    )
     if not default_model:
-        config_data["provider"] = handle_cancel(questionary.select(
-            "Choose LLM provider:",
-            choices=["vertexai", "openai", "ollama"],
-            default="vertexai"
-        ).ask())
-        config_data["model"] = handle_cancel(questionary.text("Enter model name:", default="gemini-3.1-pro-preview").ask())
+        config_data["provider"] = handle_cancel(
+            questionary.select(
+                "Choose LLM provider:",
+                choices=["vertexai", "openai", "ollama"],
+                default="vertexai",
+            ).ask()
+        )
+        config_data["model"] = handle_cancel(
+            questionary.text(
+                "Enter model name:", default="gemini-3.1-pro-preview"
+            ).ask()
+        )
 
     # file ignores setup
-    default_ignore = handle_cancel(questionary.confirm("Use default ignore setup (ignore common dirs like .git, venv, and files > 100KB)?", default=True).ask())
+    default_ignore = handle_cancel(
+        questionary.confirm(
+            "Use default ignore setup (ignore common dirs like .git, venv, and files > 100KB)?",
+            default=True,
+        ).ask()
+    )
     if not default_ignore:
-        size_str = handle_cancel(questionary.text("Ignore files above size (KB):", default="100").ask())
-        config_data["ignore_above_size_kb"] = int(size_str) if size_str.isdigit() else 100
-        ignore_patterns_str = handle_cancel(questionary.text("Enter ignore patterns (comma-separated):", default=".git, __pycache__, venv, .venv, env, node_modules, .env, *.pyc, *.pyo").ask())
-        config_data["ignore_patterns"] = [p.strip() for p in ignore_patterns_str.split(",")]
+        size_str = handle_cancel(
+            questionary.text("Ignore files above size (KB):", default="100").ask()
+        )
+        config_data["ignore_above_size_kb"] = (
+            int(size_str) if size_str.isdigit() else 100
+        )
+        ignore_patterns_str = handle_cancel(
+            questionary.text(
+                "Enter ignore patterns (comma-separated):",
+                default=".git, __pycache__, venv, .venv, env, node_modules, .env, *.pyc, *.pyo",
+            ).ask()
+        )
+        config_data["ignore_patterns"] = [
+            p.strip() for p in ignore_patterns_str.split(",")
+        ]
 
     # agent setup
-    agent_choice = handle_cancel(questionary.select(
-        "Use agent-mode (An agent will dynamcially handle your files instead of full-project context)?",
-        choices=[
-            questionary.Choice('Enable agent-mode always', value='always'),
-            questionary.Choice('Enable agent-mode if project context exceeds a threshold', value='threshold'),
-            questionary.Choice('Disable agent-mode', value='never')
-        ]
-    ).ask())
+    agent_choice = handle_cancel(
+        questionary.select(
+            "Use agent-mode (An agent will dynamcially handle your files instead of full-project context)?",
+            choices=[
+                questionary.Choice("Enable agent-mode always", value="always"),
+                questionary.Choice(
+                    "Enable agent-mode if project context exceeds a threshold",
+                    value="threshold",
+                ),
+                questionary.Choice("Disable agent-mode", value="never"),
+            ],
+        ).ask()
+    )
 
-    config_data["use_agent"] = agent_choice == 'always'
-    if agent_choice == 'threshold':
-        threshold_str = handle_cancel(questionary.text("Threshold in KB for automatic agent mode:", default="1000").ask())
-        config_data["agent_threshold_kb"] = int(threshold_str) if threshold_str.isdigit() else 1000
+    config_data["use_agent"] = agent_choice == "always"
+    if agent_choice == "threshold":
+        threshold_str = handle_cancel(
+            questionary.text(
+                "Threshold in KB for automatic agent mode:", default="1000"
+            ).ask()
+        )
+        config_data["agent_threshold_kb"] = (
+            int(threshold_str) if threshold_str.isdigit() else 1000
+        )
     else:
         config_data["agent_threshold_kb"] = -1
 
@@ -184,18 +280,27 @@ def init():
     # style.md setup
     # TODO style md generation with questionnaire
     if config.use_style_md:
-        create_style = handle_cancel(questionary.confirm(f"Do you want to create and initialize {config.style_md_path}?", default=True).ask())
+        create_style = handle_cancel(
+            questionary.confirm(
+                f"Do you want to create and initialize {config.style_md_path}?",
+                default=True,
+            ).ask()
+        )
         if create_style:
-            style_path = config.style_md_path or os.path.join(config.docs_dir or "docs", "style.md")
+            style_path = config.style_md_path or os.path.join(
+                config.docs_dir or "docs", "style.md"
+            )
             os.makedirs(os.path.dirname(style_path) or ".", exist_ok=True)
 
             # select a template
             choices = [f.replace(".md", "") for f in get_style_templates()] + ["empty"]
-            selected_template = handle_cancel(questionary.select(
-                "Choose a style template to initialize with:",
-                choices=choices,
-                default="empty"
-            ).ask())
+            selected_template = handle_cancel(
+                questionary.select(
+                    "Choose a style template to initialize with:",
+                    choices=choices,
+                    default="empty",
+                ).ask()
+            )
 
             if not os.path.exists(style_path):
                 if selected_template == "empty":
@@ -205,49 +310,81 @@ def init():
 
                 with open(style_path, "w", encoding="utf-8") as f:
                     f.write(content)
-                console.print(f"[green]Created {style_path} using {selected_template} template![/green]")
+                console.print(
+                    f"[green]Created {style_path} using {selected_template} template![/green]"
+                )
             else:
-                console.print(f"[yellow]{style_path} already exists. Skipping initialization.[/yellow]")
+                console.print(
+                    f"[yellow]{style_path} already exists. Skipping initialization.[/yellow]"
+                )
 
-    # required files setup (documentor plan)
-    required_files = []
+    # plan setup (documentor plan)
     console.print("[blue]Analyzing project context to generate plan...[/blue]")
     parser = Parser(config)
+
+    # After saving config, state_manager is using the new config
+    state_manager = StateManager(config)
+    existing_docs = []
+
     if should_use_agent(config, parser):
-        required_files = agent_generate_plan(config)
+        suggested_files = agent_generate_plan(config, existing_docs)
     else:
         context = parser.extract_context()
-        required_files = generate_plan(context, config)
+        suggested_files = generate_plan(context, config, existing_docs)
 
-    console.print(f"[green]AI suggested {len(required_files)} files based on project context.[/green]")
+    console.print(
+        f"[green]AI suggested {len(suggested_files)} files based on project context.[/green]"
+    )
 
-    if required_files:
-        config.required_files = required_files
-        config_manager.save_config(config)
+    if suggested_files:
+        for doc in suggested_files:
+            state_manager.update_doc_state(
+                doc_path=Path(os.path.join(config.docs_dir, doc.filename)),
+                description=doc.description,
+            )
 
-    console.print("[blue]Initialization complete! Run `documentor generate` to generate your documentation.[/blue]")
+    console.print(
+        "[blue]Initialization complete! Run `documentor generate` to generate your documentation.[/blue]"
+    )
+
 
 @app.command()
-def generate(force_regenerate: bool = typer.Option(False, "--force", "-f", help="Force regeneration of all documentation, ignoring tracking state")):
-    """On-demand generation based on documentor.yaml."""
+def generate(
+    force_regenerate: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Force regeneration of all documentation, ignoring tracking state",
+    ),
+):
+    """On-demand generation based on documentor-lock.yaml."""
     config_manager = ConfigManager()
     config = config_manager.load_config()
+    state_manager = StateManager(config)
 
-    if not config.required_files:
-        console.print("[yellow]No documentation files defined in documentor.yaml.[/yellow]")
-        console.print("[blue]Try running `documentor plan` to automatically suggest documentation files.[/blue]")
+    if not state_manager.state.managed_docs:
+        console.print(
+            "[yellow]No documentation files defined in documentor-lock.yaml.[/yellow]"
+        )
+        console.print(
+            "[blue]Try running `documentor plan` to automatically suggest documentation files.[/blue]"
+        )
         return
 
     parser = Parser(config)
-    state_manager = StateManager(config)
 
     docs_to_generate = []
+    managed_docs_items = [
+        DocItem(filename=os.path.basename(str(ds.doc_path)), description=ds.description)
+        for ds in state_manager.state.managed_docs
+    ]
+
     if force_regenerate:
-        docs_to_generate = config.required_files
+        docs_to_generate = managed_docs_items
         console.print("[blue]Force regenerating all documentation...[/blue]")
     else:
-        stale_docs = {ds.doc_path for ds in state_manager.get_stale_docs()}
-        for doc in config.required_files:
+        stale_docs = {str(ds.doc_path) for ds in state_manager.get_stale_docs()}
+        for doc in managed_docs_items:
             doc_path = os.path.join(config.docs_dir, doc.filename)
             if not os.path.exists(doc_path) or doc_path in stale_docs:
                 docs_to_generate.append(doc)
@@ -257,12 +394,20 @@ def generate(force_regenerate: bool = typer.Option(False, "--force", "-f", help=
         return
 
     if should_use_agent(config, parser):
-        console.print(f"[blue]Generating {len(docs_to_generate)} documentation files using agent mode in parallel...[/blue]")
-        generated_files = asyncio.run(async_agent_generate_docs(config, docs_to_generate))
+        console.print(
+            f"[blue]Generating {len(docs_to_generate)} documentation files using agent mode in parallel...[/blue]"
+        )
+        generated_files = asyncio.run(
+            async_agent_generate_docs(config, docs_to_generate)
+        )
     else:
-        console.print(f"[blue]Generating {len(docs_to_generate)} documentation files in parallel...[/blue]")
+        console.print(
+            f"[blue]Generating {len(docs_to_generate)} documentation files in parallel...[/blue]"
+        )
         context = parser.extract_context()
-        generated_files = asyncio.run(async_generate_docs(context, config, docs_to_generate))
+        generated_files = asyncio.run(
+            async_generate_docs(context, config, docs_to_generate)
+        )
 
     for file_path in generated_files:
         state_manager.update_doc_state(doc_path=Path(file_path))
@@ -300,6 +445,7 @@ def edit(target_file: str):
 
     console.print(f"[green]Successfully edited {target_file}![/green]")
 
+
 @app.command()
 def expand(target_file: str):
     """Turns scrappy bullet points into a coherent, well-formatted document using AI inference for metadata."""
@@ -320,29 +466,37 @@ def expand(target_file: str):
         context = parser.extract_context()
         doc_info = infer_doc_info(filename, context, config)
 
-    console.print(f"[blue]Inferred Type: {doc_info.type}[/blue]")
     console.print(f"[blue]Inferred Description: {doc_info.description}[/blue]")
 
     with open(target_file, "r", encoding="utf-8") as f:
         content = f.read()
 
     if should_use_agent(config, parser):
-        new_content = agent_expand_doc(content, doc_info.type, config)
+        new_content = agent_expand_doc(content, doc_info.description, config)
     else:
-        new_content = expand_doc(content, doc_info.type, config)
+        new_content = expand_doc(content, doc_info.description, config)
 
     writer = Writer(config)
     final_path = writer.write(target_file, new_content)
 
-    existing_filenames = {f.filename.lower() for f in config.required_files}
-    if filename.lower() not in existing_filenames and target_file.lower() not in existing_filenames:
-        config.required_files.append(doc_info)
-        config_manager.save_config(config)
-
     state_manager = StateManager(config)
-    state_manager.update_doc_state(doc_path=Path(final_path))
+
+    existing_filenames = {
+        os.path.basename(str(ds.doc_path)).lower()
+        for ds in state_manager.state.managed_docs
+    }
+    if (
+        filename.lower() not in existing_filenames
+        and target_file.lower() not in existing_filenames
+    ):
+        state_manager.update_doc_state(
+            doc_path=Path(final_path), description=doc_info.description
+        )
+    else:
+        state_manager.update_doc_state(doc_path=Path(final_path))
 
     console.print(f"[green]Successfully expanded {target_file}![/green]")
+
 
 @app.command()
 def add(target_file: str):
@@ -356,22 +510,26 @@ def add(target_file: str):
         raise typer.Exit(1)
 
     state_manager = StateManager(config)
-    state_manager.update_doc_state(doc_path=Path(target_file))
 
     filename = os.path.basename(target_file)
-    existing_filenames = {f.filename.lower() for f in config.required_files}
+    existing_filenames = {
+        os.path.basename(str(ds.doc_path)).lower()
+        for ds in state_manager.state.managed_docs
+    }
 
     if filename.lower() not in existing_filenames:
-        doc_item = DocItem(
-            filename=filename,
-            type="Manual",
-            description="Manually added documentation file"
+        state_manager.update_doc_state(
+            doc_path=Path(target_file),
+            description="Manually added documentation file",
         )
-        config.required_files.append(doc_item)
-        config_manager.save_config(config)
-        console.print(f"[green]Added {filename} to required_files in documentor.yaml[/green]")
+        console.print(
+            f"[green]Added {filename} to managed docs in documentor-lock.yaml[/green]"
+        )
+    else:
+        state_manager.update_doc_state(doc_path=Path(target_file))
 
     console.print(f"[green]Successfully added {target_file} to tracking![/green]")
+
 
 @app.command()
 def sync():
@@ -387,7 +545,9 @@ def sync():
         console.print("[green]All documentation is up to date![/green]")
         return
 
-    console.print(f"[yellow]Found {len(stale_docs)} stale documents. Syncing...[/yellow]")
+    console.print(
+        f"[yellow]Found {len(stale_docs)} stale documents. Syncing...[/yellow]"
+    )
 
     parser = Parser(config)
     use_agent = should_use_agent(config, parser)
@@ -406,30 +566,46 @@ def sync():
             try:
                 base_hash = ds.last_source_hash.split("-dirty-")[0]
                 import subprocess
+
                 result = subprocess.run(
-                    ["git", "diff", base_hash, "HEAD", "--", ".", ":!documentor.yaml", ":!documentor-lock.yaml"],
+                    [
+                        "git",
+                        "diff",
+                        base_hash,
+                        "HEAD",
+                        "--",
+                        ".",
+                        ":!documentor.yaml",
+                        ":!documentor-lock.yaml",
+                    ],
                     capture_output=True,
                     text=True,
-                    check=False
+                    check=False,
                 )
                 if result.returncode == 0:
                     diff = result.stdout
             except Exception:
                 pass
 
-        docs_to_sync.append({
-            "doc_path": ds.doc_path,
-            "current_content": current_content,
-            "diff": diff,
-            "stale_doc_state": ds
-        })
+        docs_to_sync.append(
+            {
+                "doc_path": ds.doc_path,
+                "current_content": current_content,
+                "diff": diff,
+                "stale_doc_state": ds,
+            }
+        )
 
     if docs_to_sync:
         if use_agent:
-            console.print(f"[blue]Syncing {len(docs_to_sync)} documentation files using agent mode in parallel...[/blue]")
+            console.print(
+                f"[blue]Syncing {len(docs_to_sync)} documentation files using agent mode in parallel...[/blue]"
+            )
             final_paths = asyncio.run(async_agent_sync_docs(config, docs_to_sync))
         else:
-            console.print(f"[blue]Syncing {len(docs_to_sync)} documentation files in parallel...[/blue]")
+            console.print(
+                f"[blue]Syncing {len(docs_to_sync)} documentation files in parallel...[/blue]"
+            )
             context = parser.extract_context()
             final_paths = asyncio.run(async_sync_docs(context, config, docs_to_sync))
 
@@ -440,11 +616,12 @@ def sync():
             state_manager.update_doc_state(
                 doc_path=Path(final_path),
                 tracking_type=ds.tracking_type,
-                source_refs=ds.source_refs
+                source_refs=ds.source_refs,
             )
             console.print(f"[green]Successfully synced {final_path}![/green]")
 
     console.print("[green]Sync complete![/green]")
+
 
 if __name__ == "__main__":
     app()

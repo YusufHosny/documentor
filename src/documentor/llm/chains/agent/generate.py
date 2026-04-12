@@ -31,7 +31,6 @@ def _prepare_agent_generate_chain_and_inputs(
     user_input = prompts["user_prompt"].format(
         context_content="",
         filename=doc.filename,
-        doc_type=doc.type,
         description=doc.description,
         agent_instruction="Explore the codebase as needed.",
     )

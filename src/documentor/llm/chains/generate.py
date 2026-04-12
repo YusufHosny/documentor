@@ -24,7 +24,6 @@ def _prepare_generate_chain_and_inputs(
         "style_guide": config.get_style_guide(),
         "context_content": f"Here is the project context:\n{context_str}",
         "filename": doc.filename,
-        "doc_type": doc.type,
         "description": doc.description,
         "agent_instruction": "",
     }

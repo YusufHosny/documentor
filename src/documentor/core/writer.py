@@ -1,10 +1,13 @@
 import os
 from documentor.core.config import Config
+from documentor.core.state import StateManager
 import regex
+
 
 class Writer:
     def __init__(self, config: Config):
         self.config = config
+        self.state_manager = StateManager(config)
 
     def write(self, target_file: str, content: str):
         """Writes markdown content to disk, optionally adding a footer."""
@@ -18,12 +21,14 @@ class Writer:
         config_docs_dir = self.config.docs_dir or "docs"
 
         # check for any doc links and adjust path
-        for doc_item in self.config.required_files:
-            filename = os.path.basename(doc_item.filename)
+        for ds in self.state_manager.state.managed_docs:
+            filename = os.path.basename(str(ds.doc_path))
             safe_docs_dir = regex.escape(config_docs_dir)
             replacement = f"{config_docs_dir}/{filename}".replace("\\", "/")
             pattern = rf"(?<!{safe_docs_dir}[/\\]){regex.escape(filename)}"
-            content = regex.sub(pattern, lambda m: replacement, content, flags=regex.IGNORECASE)
+            content = regex.sub(
+                pattern, lambda m: replacement, content, flags=regex.IGNORECASE
+            )
 
         final_path = target_file
         if (

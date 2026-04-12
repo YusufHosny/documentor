@@ -6,4 +6,4 @@ Follow this style guide:
 
 # User Prompt
 {context_content}
-Please generate the {filename} file with the following type '{doc_type}' and description: '{description}'. {agent_instruction}
+Please generate the {filename} file based on the following description: '{description}'. {agent_instruction}

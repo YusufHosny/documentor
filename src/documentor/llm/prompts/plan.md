@@ -3,8 +3,8 @@ You are an expert technical documentation architect. Your goal is to analyze the
 The current documentation style guide is:
 {style_guide}
 
-The following files are already required and you should NOT duplicate them:
-{required_files}
+The following files are already documented and you should NOT duplicate them:
+{existing_docs}
 
 # User Prompt
 {context_content}

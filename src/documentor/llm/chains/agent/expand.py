@@ -8,7 +8,7 @@ from documentor.llm.prompts import get_prompt_parts
 from .tools import get_tools
 
 
-def agent_expand_doc(scrappy_notes: str, doc_type: str, config: Config) -> str:
+def agent_expand_doc(scrappy_notes: str, description: str, config: Config) -> str:
     """Expands scrappy notes into a full document by dynamically exploring context."""
     llm = get_llm(config)
     tools = get_tools(config)
@@ -17,7 +17,7 @@ def agent_expand_doc(scrappy_notes: str, doc_type: str, config: Config) -> str:
     common_prompts = get_prompt_parts("common")
 
     system_message = prompts["system_prompt"].format(
-        doc_type=doc_type,
+        description=description,
         context_instruction="You can explore the codebase to ensure your expansion is accurate and comprehensive using the provided tools.",
         style_guide=config.get_style_guide(),
     )

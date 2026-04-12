@@ -5,7 +5,7 @@ from documentor.llm.client import get_llm, retryable
 from documentor.llm.prompts import get_prompt_parts
 
 
-def expand_doc(scrappy_notes: str, doc_type: str, config: Config) -> str:
+def expand_doc(scrappy_notes: str, description: str, config: Config) -> str:
     """Expands scrappy notes into a full document."""
     llm = get_llm(config)
 
@@ -19,7 +19,7 @@ def expand_doc(scrappy_notes: str, doc_type: str, config: Config) -> str:
 
     return chain.invoke(
         {
-            "doc_type": doc_type,
+            "description": description,
             "context_instruction": "",
             "style_guide": config.get_style_guide(),
             "notes": scrappy_notes,

@@ -1,20 +1,22 @@
-last_project_hash: 05ee33ee29132eb130f9a27a11404e3c17e0670a-dirty-0ff686b5f69fb5f1c38cd49065befaa7
 managed_docs:
 - doc_path: readme.md
+  description: general description, installation, overview and links to other docs
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 05ee33ee29132eb130f9a27a11404e3c17e0670a-dirty-0ff686b5f69fb5f1c38cd49065befaa7
-  updated_at: '2026-03-25T03:03:02.321359'
+  last_source_hash: 9599d0422773d6c66dd4c4dd03ab63ced80ed619-dirty-e2081cdb54dc86de9f9dc4828bc2799b
+  updated_at: '2026-04-12T22:17:39.027072'
 - doc_path: docs/config.md
+  description: configuration file reference and examples
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 05ee33ee29132eb130f9a27a11404e3c17e0670a-dirty-0ff686b5f69fb5f1c38cd49065befaa7
-  updated_at: '2026-03-25T03:03:02.339504'
+  last_source_hash: 9599d0422773d6c66dd4c4dd03ab63ced80ed619-dirty-e2081cdb54dc86de9f9dc4828bc2799b
+  updated_at: '2026-04-12T22:17:39.045071'
 - doc_path: docs/usage.md
+  description: command line usage and examples
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 05ee33ee29132eb130f9a27a11404e3c17e0670a-dirty-0ff686b5f69fb5f1c38cd49065befaa7
-  updated_at: '2026-03-25T03:03:02.368705'
+  last_source_hash: 9599d0422773d6c66dd4c4dd03ab63ced80ed619-dirty-e2081cdb54dc86de9f9dc4828bc2799b
+  updated_at: '2026-04-12T22:17:39.059911'

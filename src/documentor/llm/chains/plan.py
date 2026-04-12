@@ -5,7 +5,9 @@ from documentor.llm.client import get_llm, retryable
 from documentor.llm.prompts import get_prompt_parts
 
 
-def generate_plan(context: List[Dict[str, str]], config: Config) -> List[DocItem]:
+def generate_plan(
+    context: List[Dict[str, str]], config: Config, existing_docs: List[DocItem]
+) -> List[DocItem]:
     """Determines which documents to generate based on project context."""
     prompts = get_prompt_parts("plan")
 
@@ -16,8 +18,8 @@ def generate_plan(context: List[Dict[str, str]], config: Config) -> List[DocItem
     context_str = "\n\n".join(
         [f"--- File: {f['path']} ---\n{f['content']}" for f in context]
     )
-    required_files_str = "\n".join(
-        [f"- {f.filename} (Type: {f.type})" for f in config.required_files]
+    existing_docs_str = "\n".join(
+        [f"- {f.filename} ({f.description})" for f in existing_docs]
     )
 
     llm = get_llm(config)
@@ -29,14 +31,14 @@ def generate_plan(context: List[Dict[str, str]], config: Config) -> List[DocItem
             {
                 "context_instruction": "Analyze the project context and suggest a list of documentation files that should be generated to provide a complete understanding of the codebase.",
                 "style_guide": config.get_style_guide(),
-                "required_files": required_files_str,
+                "existing_docs": existing_docs_str,
                 "context_content": f"Here is the project context:\n{context_str}",
             }
         )  # type: ignore
 
-        required_filenames = {f.filename.lower() for f in config.required_files}
+        existing_filenames = {f.filename.lower() for f in existing_docs}
         pruned_files = [
-            f for f in response.files if f.filename.lower() not in required_filenames
+            f for f in response.files if f.filename.lower() not in existing_filenames
         ]
 
         return pruned_files
@@ -47,7 +49,7 @@ def generate_plan(context: List[Dict[str, str]], config: Config) -> List[DocItem
 def infer_doc_info(
     filename: str, context: List[Dict[str, str]], config: Config
 ) -> DocItem:
-    """Infers type and description for a specific file based on context."""
+    """Infers description for a specific file based on context."""
     prompts = get_prompt_parts("infer")
 
     prompt = ChatPromptTemplate.from_messages(
@@ -65,13 +67,11 @@ def infer_doc_info(
     try:
         response: DocItem = chain.invoke(
             {
-                "context_instruction": "Based on the project context, infer the most appropriate documentation type and a brief description for the file.",
+                "context_instruction": "Based on the project context, infer a brief description for the file.",
                 "filename_content": f"Filename: {filename}",
                 "exploration_findings": f"Here is the project context:\n{context_str}",
             }
         )  # type: ignore
         return response
     except Exception:
-        return DocItem(
-            filename=filename, type="General", description="Auto-inferred documentation"
-        )
+        return DocItem(filename=filename, description="Auto-inferred documentation")
