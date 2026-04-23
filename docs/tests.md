@@ -35,6 +35,7 @@ pytest tests/
 
 The `tests/` directory is organized to mirror the core components of the project:
 
+* **`test_agent.py`**: Tests Agent Mode behavior, codebase exploration tools (e.g., list, read, grep), and dynamic document generation and syncing logic.
 * **`test_cli.py`**: Validates Typer CLI commands, options, and user prompts.
 * **`test_core.py`**: Covers internal business logic, including configuration management, state tracking, and file parsing.
 * **`test_llm.py`**: Tests LangChain integrations, prompt generation, and asynchronous LLM chains.

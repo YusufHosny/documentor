@@ -26,68 +26,13 @@ class Parser:
         ]
         return any(reasons)
 
-    def extract_context(self, target: Optional[str] = None) -> List[Dict[str, str]]:
-        """Extracts file content for LLM context, respecting ignore patterns."""
-        context = []
-        base_dir = "." if target is None else str(target)
-
-        if os.path.isfile(base_dir):
-            if not self.ignore_spec.match_file(base_dir):
-                content = self.read_file(base_dir)
-                if content:
-                    context.append({"path": base_dir, "content": content})
-            return context
-
-        for root, dirs, files in os.walk(base_dir):
-            dirs[:] = [
-                d for d in dirs
-                if not self.ignore_spec.match_file(os.path.relpath(os.path.join(root, d), base_dir))
-            ]
-
-            for file in files:
-                file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, base_dir)
-                if not self.is_ignored(rel_path, file_path):
-                    content = self.read_file(file_path)
-                    if content is not None:
-                        context.append({"path": rel_path, "content": content})
-
-        return context
-
-    def get_total_context_size_kb(self, target: Optional[str] = None) -> int:
-        """Calculates total size of all non-ignored files in KB."""
-        total_size_bytes = 0
-        base_dir = "." if target is None else str(target)
-
-        if os.path.isfile(base_dir):
-            if not self.ignore_spec.match_file(base_dir):
-                total_size_bytes += os.path.getsize(base_dir)
-            return total_size_bytes // 1024
-
-        for root, dirs, files in os.walk(base_dir):
-            dirs[:] = [
-                d for d in dirs
-                if not self.ignore_spec.match_file(os.path.relpath(os.path.join(root, d), base_dir))
-            ]
-
-            for file in files:
-                file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, base_dir)
-                if not self.is_ignored(rel_path, file_path):
-                    try:
-                        total_size_bytes += os.path.getsize(file_path)
-                    except OSError:
-                        pass
-
-        return total_size_bytes // 1024
-
     def list_files_for_agent(self, target: Optional[str] = None) -> List[str]:
         """Lists all non-ignored file paths for agent exploration."""
         file_list = []
         base_dir = "." if target is None else str(target)
 
         if os.path.isfile(base_dir):
-            if not self.ignore_spec.match_file(base_dir):
+            if not self.is_ignored(base_dir, base_dir):
                 file_list.append(base_dir)
             return file_list
 
@@ -101,7 +46,7 @@ class Parser:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, base_dir)
 
-                if not self.ignore_spec.match_file(rel_path):
+                if not self.is_ignored(rel_path, file_path):
                     file_list.append(rel_path)
 
         return file_list

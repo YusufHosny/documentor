@@ -8,6 +8,12 @@ To create a configuration file interactively, run:
 documentor init
 ```
 
+To completely remove the configuration file and its tracked state, run:
+
+```bash
+documentor destroy
+```
+
 ## Example `documentor.yaml`
 
 ```yaml
@@ -28,7 +34,6 @@ ignore_patterns:
   - .env
   - "*.pyc"
   - "*.pyo"
-agent_threshold_kb: 0
 ```
 
 ---
@@ -55,16 +60,10 @@ agent_threshold_kb: 0
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `use_git` | boolean | `true` | Enables Git-based tracking to detect incremental changes since the last sync. |
-| `ignore_above_size_kb`| integer | `100` | Excludes source files larger than this size (KB) during context extraction (in non-agent mode). |
+| `ignore_above_size_kb`| integer | `100` | Excludes source files larger than this size (KB) during context extraction. |
 | `ignore_patterns` | list | `[".git", "__pycache__", "venv", ".venv", "env", "node_modules", ".env", "*.pyc", "*.pyo"]` | File and directory patterns to ignore during context extraction. |
 
 > **Note:** Documentor generates a `documentor-lock.yaml` file to track the sync state and scope of your documentation. You should commit this file to your repository. Tracked documentation files are managed via CLI commands like `documentor plan`, `documentor add`, and `documentor remove`.
-
-### Agent Settings
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `agent_threshold_kb` | integer | `0` | Threshold in KB above which agent mode is automatically used. Set to `0` to always use agent mode, or `-1` to never use it. |
 
 ---
 

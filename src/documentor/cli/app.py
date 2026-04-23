@@ -8,14 +8,6 @@ import questionary
 from documentor.core.config import Config, ConfigManager, DocItem
 from documentor.core.state import StateManager
 from documentor.llm.chains import (
-    async_generate_docs,
-    edit_doc,
-    expand_doc,
-    async_sync_docs,
-    generate_plan,
-    infer_doc_info,
-)
-from documentor.llm.chains.agent import (
     async_agent_generate_docs,
     agent_edit_doc,
     agent_expand_doc,
@@ -73,24 +65,6 @@ def handle_cancel(val):
     return val
 
 
-def should_use_agent(config: Config, parser: Parser) -> bool:
-    """Centralized logic to decide if agent mode should be used."""
-    if config.agent_threshold_kb == 0:
-        return True
-
-    if config.agent_threshold_kb == -1:
-        return False
-
-    total_size = parser.get_total_context_size_kb()
-    if total_size > config.agent_threshold_kb:
-        console.print(
-            f"[yellow]Project size ({total_size}KB) exceeds agent threshold ({config.agent_threshold_kb}KB). Switching to agent mode.[/yellow]"
-        )
-        return True
-
-    return False
-
-
 @app.command()
 def plan():
     """Analyzes the project context and suggests a list of documentation files to be managed."""
@@ -101,11 +75,7 @@ def plan():
         for ds in state_manager.state.managed_docs
     ]
 
-    if should_use_agent(config, parser):
-        suggested_files = agent_generate_plan(config, existing_docs)
-    else:
-        context = parser.extract_context()
-        suggested_files = generate_plan(context, config, existing_docs)
+    suggested_files = agent_generate_plan(config, existing_docs)
 
     if not suggested_files:
         console.print("[yellow]No new documentation files suggested.[/yellow]")
@@ -238,35 +208,6 @@ def init():
             p.strip() for p in ignore_patterns_str.split(",")
         ]
 
-    # agent setup
-    agent_choice = handle_cancel(
-        questionary.select(
-            "Use agent-mode (An agent will dynamcially handle your files instead of full-project context)?",
-            choices=[
-                questionary.Choice("Enable agent-mode always", value="always"),
-                questionary.Choice(
-                    "Enable agent-mode if project context exceeds a threshold",
-                    value="threshold",
-                ),
-                questionary.Choice("Disable agent-mode", value="never"),
-            ],
-        ).ask()
-    )
-
-    if agent_choice == "always":
-        config_data["agent_threshold_kb"] = 0
-    elif agent_choice == "threshold":
-        threshold_str = handle_cancel(
-            questionary.text(
-                "Threshold in KB for automatic agent mode:", default="1000"
-            ).ask()
-        )
-        config_data["agent_threshold_kb"] = (
-            int(threshold_str) if threshold_str.isdigit() else 1000
-        )
-    else:
-        config_data["agent_threshold_kb"] = -1
-
     config = Config(**config_data)
     config_manager.save_config(config)
 
@@ -322,11 +263,7 @@ def init():
     console.print("[blue]Analyzing project context to generate plan...[/blue]")
     existing_docs = []
 
-    if should_use_agent(config, parser):
-        suggested_files = agent_generate_plan(config, existing_docs)
-    else:
-        context = parser.extract_context()
-        suggested_files = generate_plan(context, config, existing_docs)
+    suggested_files = agent_generate_plan(config, existing_docs)
 
     console.print(
         f"[green]AI suggested {len(suggested_files)} files based on project context.[/green]"
@@ -388,21 +325,12 @@ def generate(
 
 def _run_generation(docs_to_generate: list[DocItem]):
     """Internal helper to execute the document generation logic."""
-    if should_use_agent(config, parser):
-        console.print(
-            f"[blue]Generating {len(docs_to_generate)} documentation files using agent mode in parallel...[/blue]"
-        )
-        generated_files = asyncio.run(
-            async_agent_generate_docs(config, state_manager, docs_to_generate)
-        )
-    else:
-        console.print(
-            f"[blue]Generating {len(docs_to_generate)} documentation files in parallel...[/blue]"
-        )
-        context = parser.extract_context()
-        generated_files = asyncio.run(
-            async_generate_docs(context, config, state_manager, docs_to_generate)
-        )
+    console.print(
+        f"[blue]Generating {len(docs_to_generate)} documentation files using agent mode in parallel...[/blue]"
+    )
+    generated_files = asyncio.run(
+        async_agent_generate_docs(config, state_manager, docs_to_generate)
+    )
 
     for file_path in generated_files:
         state_manager.upsert_doc(filepath=Path(file_path))
@@ -573,10 +501,7 @@ def edit(target_file: str):
     with open(target_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    if should_use_agent(config, parser):
-        new_content = agent_edit_doc(content, comments, config)
-    else:
-        new_content = edit_doc(content, comments, config)
+    new_content = agent_edit_doc(content, comments, config)
 
     final_path = writer.write(target_file, new_content)
 
@@ -596,21 +521,14 @@ def expand(target_file: str):
 
     filename = os.path.basename(target_file)
 
-    if should_use_agent(config, parser):
-        doc_info = agent_infer_doc_info(filename, config)
-    else:
-        context = parser.extract_context()
-        doc_info = infer_doc_info(filename, context, config)
+    doc_info = agent_infer_doc_info(filename, config)
 
     console.print(f"[blue]Inferred Description: {doc_info.description}[/blue]")
 
     with open(target_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    if should_use_agent(config, parser):
-        new_content = agent_expand_doc(content, doc_info.description, config)
-    else:
-        new_content = expand_doc(content, doc_info.description, config)
+    new_content = agent_expand_doc(content, doc_info.description, config)
 
     final_path = writer.write(target_file, new_content)
 
@@ -683,8 +601,6 @@ def sync():
         f"[yellow]Found {len(stale_docs)} stale documents. Syncing...[/yellow]"
     )
 
-    use_agent = should_use_agent(config, parser)
-
     docs_to_sync = []
     for ds in stale_docs:
         if not os.path.exists(ds.filepath):
@@ -730,21 +646,12 @@ def sync():
         )
 
     if docs_to_sync:
-        if use_agent:
-            console.print(
-                f"[blue]Syncing {len(docs_to_sync)} documentation files using agent mode in parallel...[/blue]"
-            )
-            final_paths = asyncio.run(
-                async_agent_sync_docs(config, state_manager, docs_to_sync)
-            )
-        else:
-            console.print(
-                f"[blue]Syncing {len(docs_to_sync)} documentation files in parallel...[/blue]"
-            )
-            context = parser.extract_context()
-            final_paths = asyncio.run(
-                async_sync_docs(context, config, state_manager, docs_to_sync)
-            )
+        console.print(
+            f"[blue]Syncing {len(docs_to_sync)} documentation files using agent mode in parallel...[/blue]"
+        )
+        final_paths = asyncio.run(
+            async_agent_sync_docs(config, state_manager, docs_to_sync)
+        )
 
         # Update states
         for i, doc_data in enumerate(docs_to_sync):

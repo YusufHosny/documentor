@@ -41,7 +41,7 @@ class Config(BaseModel):
     # in case the agent tries to read large files and breaks its context
     ignore_above_size_kb: int = Field(
         default=100,
-        description="Ignore files above this size (in KB) when extracting context (in non-agent mode)",
+        description="Ignore files above this size (in KB) when the agent reads files",
     )
     ignore_patterns: List[str] = Field(
         default=[
@@ -56,11 +56,6 @@ class Config(BaseModel):
             "*.pyo",
         ],
         description="Patterns to ignore when scanning project",
-    )
-
-    agent_threshold_kb: int = Field(
-        default=0,
-        description="Threshold in KB above which agent mode is automatically used. 0=always, -1=never.",
     )
     # TODO: semantically ignore files with llm/vectorsearch
 

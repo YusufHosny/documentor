@@ -175,12 +175,14 @@ class StateManager:
         from documentor.core.parser import Parser
 
         parser = Parser(self.config)
-        context = parser.extract_context()
+        files = parser.list_files_for_agent()
 
         # sorting for consistent hash
-        for item in sorted(context, key=lambda x: x["path"]):
-            hasher.update(item["path"].encode("utf-8"))
-            hasher.update(item["content"].encode("utf-8"))
+        for filepath in sorted(files):
+            hasher.update(filepath.encode("utf-8"))
+            content = parser.read_file(filepath)
+            if content:
+                hasher.update(content.encode("utf-8"))
         return hasher.hexdigest()
 
     def upsert_doc(

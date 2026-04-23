@@ -130,7 +130,6 @@ def test_generate_command_force(mocker, cli_config):
     mock_state_manager.state.managed_docs = [ds]
     mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
     mocker.patch('documentor.cli.app.config', cli_config)
-    mocker.patch('documentor.cli.app.should_use_agent', return_value=False)
     
     mock_run_generation = mocker.patch('documentor.cli.app._run_generation')
     
@@ -161,11 +160,9 @@ def test_sync_command_with_stale(mocker, cli_config, tmp_path):
     mock_state_manager.get_stale_docs.return_value = [ds]
     mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
     mocker.patch('documentor.cli.app.config', cli_config)
-    mocker.patch('documentor.cli.app.should_use_agent', return_value=False)
     
-    mock_async_sync = mocker.patch('documentor.cli.app.async_sync_docs', new_callable=AsyncMock)
+    mock_async_sync = mocker.patch('documentor.cli.app.async_agent_sync_docs', new_callable=AsyncMock)
     mock_async_sync.return_value = ["docs/test.md"]
-    mocker.patch('documentor.cli.app.parser.extract_context', return_value=[])
     
     result = runner.invoke(app, ["sync"])
     assert result.exit_code == 0
@@ -173,12 +170,11 @@ def test_sync_command_with_stale(mocker, cli_config, tmp_path):
     mock_async_sync.assert_called_once()
     mock_state_manager.upsert_doc.assert_called_once()
 
-def test_plan_command_agent_mode(mocker, cli_config):
+def test_plan_command(mocker, cli_config):
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.state.managed_docs = []
     mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
     mocker.patch('documentor.cli.app.config', cli_config)
-    mocker.patch('documentor.cli.app.should_use_agent', return_value=True)
     
     mock_agent_plan = mocker.patch('documentor.cli.app.agent_generate_plan')
     mock_agent_plan.return_value = [DocItem(filename="new_api.md", description="API docs")]
@@ -199,10 +195,9 @@ def test_edit_command(mocker, cli_config, tmp_path):
     doc_path.write_text("old content")
     
     mocker.patch('documentor.cli.app.config', cli_config)
-    mocker.patch('documentor.cli.app.should_use_agent', return_value=False)
     mocker.patch('typer.prompt', return_value="Make it better")
     
-    mock_edit_doc = mocker.patch('documentor.cli.app.edit_doc', return_value="new content")
+    mock_edit_doc = mocker.patch('documentor.cli.app.agent_edit_doc', return_value="new content")
     mock_writer = mocker.patch('documentor.cli.app.writer.write', return_value=str(doc_path))
     mock_state_manager = mocker.patch('documentor.cli.app.state_manager')
     
@@ -219,13 +214,11 @@ def test_expand_command(mocker, cli_config, tmp_path):
     doc_path.write_text("- bullet 1")
     
     mocker.patch('documentor.cli.app.config', cli_config)
-    mocker.patch('documentor.cli.app.should_use_agent', return_value=False)
-    mocker.patch('documentor.cli.app.parser.extract_context', return_value=[])
     
-    mock_infer = mocker.patch('documentor.cli.app.infer_doc_info')
+    mock_infer = mocker.patch('documentor.cli.app.agent_infer_doc_info')
     mock_infer.return_value = DocItem(filename="test.md", description="Inferred desc")
     
-    mock_expand = mocker.patch('documentor.cli.app.expand_doc', return_value="Full content")
+    mock_expand = mocker.patch('documentor.cli.app.agent_expand_doc', return_value="Full content")
     mock_writer = mocker.patch('documentor.cli.app.writer.write', return_value=str(doc_path))
     mock_state_manager = mocker.patch('documentor.cli.app.state_manager')
     mock_state_manager.state.managed_docs = []
@@ -256,16 +249,10 @@ def test_init_command_interactive(mocker, cli_config, tmp_path):
     mock_text.ask.return_value = "docs/style.md"
     mocker.patch('questionary.text', return_value=mock_text)
     
-    mock_select = mocker.MagicMock()
-    mock_select.ask.return_value = "never" # Agent choice
-    mocker.patch('questionary.select', return_value=mock_select)
-    
     mock_save = mocker.patch('documentor.cli.app.config_manager.save_config')
     
     # mock plan generation inside init
-    mocker.patch('documentor.cli.app.should_use_agent', return_value=False)
-    mocker.patch('documentor.cli.app.parser.extract_context', return_value=[])
-    mocker.patch('documentor.cli.app.generate_plan', return_value=[])
+    mocker.patch('documentor.cli.app.agent_generate_plan', return_value=[])
     
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0

@@ -18,7 +18,10 @@ def get_tools(config: Config):
         except re.error:
             return ["Error: Invalid regular expression."]
 
-        for path in Path(".").rglob("*"):
+        files_to_search = parser.list_files_for_agent()
+
+        for path_str in files_to_search:
+            path = Path(path_str)
             if path.is_file():
                 try:
                     with open(path, "r", encoding="utf-8", errors="ignore") as f:

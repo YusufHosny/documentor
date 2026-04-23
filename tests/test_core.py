@@ -132,54 +132,22 @@ def test_state_manager_git_error(temp_config_dir, mocker):
         
     assert "not a git repository" in str(exc.value)
 
-def test_parser_extract_context(temp_config_dir):
-    config = Config(ignore_patterns=["*.txt"], ignore_above_size_kb=1)
-    
-    # Write a .gitignore file
-    (temp_config_dir / ".gitignore").write_text("*.log")
-    
+def test_parser_list_files_for_agent(temp_config_dir):
+    config = Config(ignore_patterns=["*.txt"], ignore_above_size_kb=100)
     parser = Parser(config)
 
     src_dir = temp_config_dir / "src"
     src_dir.mkdir()
-    
     (src_dir / "main.py").write_text("print('hello')")
     (src_dir / "test.txt").write_text("ignore me")
-    (src_dir / "test.log").write_text("ignore me log")
     
-    # Large file test > 1KB
     large_file = src_dir / "large.py"
-    large_file.write_text("a" * 2048)
+    large_file.write_text("a" * (101 * 1024)) # 101KB
 
-    context = parser.extract_context(target=str(src_dir))
+    files = parser.list_files_for_agent(target=str(src_dir))
 
-    paths = [c["path"] for c in context]
-    assert any("main.py" in p for p in paths)
-    assert not any("test.txt" in p for p in paths)
-    assert not any("test.log" in p for p in paths) # Ignored via .gitignore
-    assert not any("large.py" in p for p in paths) # Ignored via size threshold
-    
-def test_parser_binary_file(temp_config_dir):
-    config = Config()
-    parser = Parser(config)
-    
-    # write some invalid unicode
-    bad_file = temp_config_dir / "bad.bin"
-    bad_file.write_bytes(b"\x80\x81\x82")
-    
-    content = parser.read_file(str(bad_file))
-    assert content is None
-
-def test_parser_size_calculation(temp_config_dir):
-    config = Config()
-    parser = Parser(config)
-
-    src_dir = temp_config_dir / "src"
-    src_dir.mkdir()
-    content = "a" * 1024 # 1KB
-    (src_dir / "file1.py").write_text(content)
-    (src_dir / "file2.py").write_text(content)
-
-    size_kb = parser.get_total_context_size_kb(target=str(src_dir))
-    assert size_kb >= 2
+    paths = [str(Path(p).name) for p in files]
+    assert "main.py" in paths
+    assert "test.txt" not in paths
+    assert "large.py" not in paths
 
