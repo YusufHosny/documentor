@@ -4,10 +4,10 @@ Documentor is an AI-powered CLI tool that automatically generates, manages, and 
 
 ## Features
 
-* **Smart Planning**: AI analyzes your project to suggest required documentation files.
+* **Smart Planning**: AI analyzes your project to suggest documentation files.
 * **Parallel Execution**: Generates and synchronizes multiple documentation files concurrently for significantly faster performance.
 * **Automatic Generation**: Creates comprehensive markdown documentation directly from your codebase.
-* **State Synchronization**: Keeps existing documentation up to date with code changes using Git diffs.
+* **State Synchronization**: Keeps existing documentation up to date with code changes using Git diffs and a lockfile.
 * **AI-Assisted Editing**: Expand quick bullet points into well-formatted documents or edit existing files via natural language prompts.
 * **Scalable Context**: Uses an intelligent Agent Mode to handle large codebases without hitting context limits.
 * **Multiple LLM Providers**: Works out-of-the-box with Google Vertex AI, OpenAI, and local models via Ollama.
@@ -42,6 +42,12 @@ To automatically analyze your project and suggest documentation outside of initi
 documentor plan
 ```
 
+To add an existing documentation file to Documentor's tracking:
+
+```bash
+documentor add docs/existing.md
+```
+
 To update your documentation after changing your code, simply run:
 
 ```bash
@@ -73,7 +79,7 @@ Documentor is configured via a `documentor.yaml` file. Below is a detailed expla
 
 For a deeper dive into Documentor's capabilities, check out the following guides:
 
-* **[CLI Usage Guide](docs/usage.md)**: Detailed descriptions of all CLI commands, options, and advanced usage examples (like `edit` and `expand`).
+* **[CLI Usage Guide](docs/usage.md)**: Detailed descriptions of all CLI commands, options, and advanced usage examples (like `add`, `edit`, and `expand`).
 * **[Configuration Reference](docs/config.md)**: A complete reference for the `documentor.yaml` file, including all available settings, tracking options, and LLM configuration.
 * **[Style Customization](docs/style.md)**: Instructions on how to use `style.md` and built-in templates to control the formatting and tone of your generated documentation.
 

@@ -1,5 +1,5 @@
 import os
-from typing import Literal, List, Dict, Optional
+from typing import Literal, List, Optional
 import yaml
 from pydantic import BaseModel, Field
 
@@ -37,9 +37,11 @@ class Config(BaseModel):
         description="Whether to use git-based tracking for incremental updates",
     )
 
+    # TODO: maybe i should wrap tool calls in checks for size too
+    # in case the agent tries to read large files and breaks its context
     ignore_above_size_kb: int = Field(
         default=100,
-        description="Ignore files above this size (in KB) when extracting context",
+        description="Ignore files above this size (in KB) when extracting context (in non-agent mode)",
     )
     ignore_patterns: List[str] = Field(
         default=[
@@ -57,7 +59,7 @@ class Config(BaseModel):
     )
 
     agent_threshold_kb: int = Field(
-        default=1000,
+        default=0,
         description="Threshold in KB above which agent mode is automatically used. 0=always, -1=never.",
     )
     # TODO: semantically ignore files with llm/vectorsearch

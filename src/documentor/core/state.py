@@ -231,6 +231,13 @@ class StateManager:
 
         self.save_state()
 
+    def remove_doc(self, filepath: Path):
+        """Removes a DocState entry."""
+        self.state.managed_docs = [
+            ds for ds in self.state.managed_docs if ds.filepath != filepath
+        ]
+        self.save_state()
+
     def get_stale_docs(self) -> List[DocState]:
         """Returns a list of DocState objects that are out of sync with their sources."""
         stale = []

@@ -4,19 +4,19 @@ managed_docs:
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 88388fe04accdb30a876ca45be1eaeaaf7286600-dirty-3713ee2e1d064cc896feaaff52e57535
-  updated_at: '2026-04-12T23:28:54.396802'
+  last_source_hash: 3927e1a4e2b17870549241b50a82a08fe1612d2a-dirty-1ad20b1fd491467d46c75feed9303814
+  updated_at: '2026-04-23T05:00:43.772456'
 - filepath: docs/config.md
   description: configuration file reference and examples
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 88388fe04accdb30a876ca45be1eaeaaf7286600-dirty-3713ee2e1d064cc896feaaff52e57535
-  updated_at: '2026-04-12T23:28:54.437896'
+  last_source_hash: 3927e1a4e2b17870549241b50a82a08fe1612d2a-dirty-1ad20b1fd491467d46c75feed9303814
+  updated_at: '2026-04-23T05:00:43.805275'
 - filepath: docs/usage.md
   description: command line usage and examples
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 88388fe04accdb30a876ca45be1eaeaaf7286600-dirty-3713ee2e1d064cc896feaaff52e57535
-  updated_at: '2026-04-12T23:28:54.456192'
+  last_source_hash: 3927e1a4e2b17870549241b50a82a08fe1612d2a-dirty-8c9f87658ae82c0320193db2591efe44
+  updated_at: '2026-04-23T05:07:03.697570'
