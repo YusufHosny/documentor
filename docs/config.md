@@ -58,7 +58,7 @@ agent_threshold_kb: 0
 | `ignore_above_size_kb`| integer | `100` | Excludes source files larger than this size (KB) during context extraction (in non-agent mode). |
 | `ignore_patterns` | list | `[".git", "__pycache__", "venv", ".venv", "env", "node_modules", ".env", "*.pyc", "*.pyo"]` | File and directory patterns to ignore during context extraction. |
 
-> **Note:** Documentor generates a `documentor-lock.yaml` file to track the sync state and scope of your documentation. You should commit this file to your repository. Tracked documentation files are managed via CLI commands like `documentor plan` and `documentor add`.
+> **Note:** Documentor generates a `documentor-lock.yaml` file to track the sync state and scope of your documentation. You should commit this file to your repository. Tracked documentation files are managed via CLI commands like `documentor plan`, `documentor add`, and `documentor remove`.
 
 ### Agent Settings
 

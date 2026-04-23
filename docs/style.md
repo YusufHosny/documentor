@@ -6,6 +6,7 @@
 - **readme.md**: The top level readme file that describes installation, usage, and gives a top level overview over other docs.
 - **usage.md**: Detailed descriptions of the CLI API including all commands and options, and extra usage examples
 - **config.md**: A detailed reference for all the config options within the config file and their types, values, defaults, and important considerations.
+- **tests.md**: Explains how to run the project's test suite, including details on test structure, what testing covers, and what tools are used (e.g. pytest, uv).
 
 ### 2. Content Requirements
 - **Project Summary**: 2-3 sentences explaining what the project is and its core value.

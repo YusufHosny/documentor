@@ -11,7 +11,7 @@ Documentor provides a command-line interface to initialize, generate, and mainta
 
 ## Agent Mode
 
-Documentor automatically switches to Agent Mode for large projects (default threshold: `1000 KB`). This prevents exceeding AI token limits by dynamically exploring the codebase instead of loading it all at once. You can configure this behavior in `documentor.yaml` using the `agent_threshold_kb` option (`0` to always enable, `-1` to disable, or a specific size in KB).
+Documentor defaults to using Agent Mode (default threshold: `0`). This prevents exceeding AI token limits by dynamically exploring the codebase instead of loading it all at once. You can configure this behavior in `documentor.yaml` using the `agent_threshold_kb` option (`0` to always enable, `-1` to disable, or a specific size in KB).
 
 ---
 

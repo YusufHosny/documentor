@@ -18,10 +18,11 @@ class Parser:
 
         return pathspec.PathSpec.from_lines('gitignore', patterns)
 
-    def is_ignored(self, path: str) -> bool:
+    def is_ignored(self, path: str, full_path: Optional[str] = None) -> bool:
+        check_path = full_path if full_path else path
         reasons = [
                 self.ignore_spec.match_file(path), # matches ignore spec
-                os.path.isfile(path) and os.path.getsize(path) <= self.config.ignore_above_size_kb * 1024 # exceeds ignore threshold
+                os.path.isfile(check_path) and os.path.getsize(check_path) > self.config.ignore_above_size_kb * 1024 # exceeds ignore threshold
         ]
         return any(reasons)
 
@@ -46,7 +47,7 @@ class Parser:
             for file in files:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, base_dir)
-                if not self.is_ignored(rel_path):
+                if not self.is_ignored(rel_path, file_path):
                     content = self.read_file(file_path)
                     if content is not None:
                         context.append({"path": rel_path, "content": content})
@@ -72,7 +73,7 @@ class Parser:
             for file in files:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, base_dir)
-                if not self.is_ignored(rel_path):
+                if not self.is_ignored(rel_path, file_path):
                     try:
                         total_size_bytes += os.path.getsize(file_path)
                     except OSError:

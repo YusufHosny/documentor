@@ -4,19 +4,26 @@ managed_docs:
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 3927e1a4e2b17870549241b50a82a08fe1612d2a-dirty-1ad20b1fd491467d46c75feed9303814
-  updated_at: '2026-04-23T05:00:43.772456'
+  last_source_hash: b01da17fd6a8cc9ea1f4fb9ce812a4a9801a00b1-dirty-5e62490d0970668efd0abb74f176d219
+  updated_at: '2026-04-23T05:37:43.331468'
 - filepath: docs/config.md
   description: configuration file reference and examples
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 3927e1a4e2b17870549241b50a82a08fe1612d2a-dirty-1ad20b1fd491467d46c75feed9303814
-  updated_at: '2026-04-23T05:00:43.805275'
+  last_source_hash: b01da17fd6a8cc9ea1f4fb9ce812a4a9801a00b1-dirty-5e62490d0970668efd0abb74f176d219
+  updated_at: '2026-04-23T05:37:43.356176'
 - filepath: docs/usage.md
   description: command line usage and examples
   tracking_type: project
   source_refs:
   - .
-  last_source_hash: 3927e1a4e2b17870549241b50a82a08fe1612d2a-dirty-8c9f87658ae82c0320193db2591efe44
-  updated_at: '2026-04-23T05:07:03.697570'
+  last_source_hash: b01da17fd6a8cc9ea1f4fb9ce812a4a9801a00b1-dirty-5e62490d0970668efd0abb74f176d219
+  updated_at: '2026-04-23T05:37:43.378620'
+- filepath: docs/tests.md
+  description: Details how to run tests and what the testing covers
+  tracking_type: project
+  source_refs:
+  - .
+  last_source_hash: b01da17fd6a8cc9ea1f4fb9ce812a4a9801a00b1-dirty-6196b7c39d95e8a1eae3b94bb87524b6
+  updated_at: '2026-04-23T05:39:20.297271'
