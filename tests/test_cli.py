@@ -13,7 +13,6 @@ runner = CliRunner()
 def cli_config(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     config = Config(docs_dir="docs", provider="vertexai", model="test-model", include_footer=False)
-    # mock config manager to return this config
     return config
 
 def test_version():
@@ -22,10 +21,9 @@ def test_version():
     assert "Documentor version:" in result.stdout
 
 def test_remove_nonexistent(mocker, cli_config):
-    # Ensure state manager has no docs
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.state.managed_docs = []
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.manage.ctx.state_manager', mock_state_manager)
     
     result = runner.invoke(app, ["remove", "nonexistent.md", "--force"])
     assert result.exit_code == 0
@@ -40,10 +38,9 @@ def test_remove_existing(mocker, cli_config, tmp_path):
     mock_state_manager = mocker.MagicMock()
     ds = DocState(filepath=Path("docs/test.md"), tracking_type="file", source_refs=[], last_source_hash="")
     mock_state_manager.state.managed_docs = [ds]
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.manage.ctx.state_manager', mock_state_manager)
     
-    # Needs to match the relative path correctly to be found in state_manager
-    os.chdir(tmp_path) # monkeypatch fixture isn't available to runner directly, so chdir just in case
+    os.chdir(tmp_path) 
     
     result = runner.invoke(app, ["remove", "docs/test.md", "--force"])
     assert result.exit_code == 0
@@ -56,7 +53,6 @@ def test_destroy_command_abort(mocker):
     mock_prompt = mocker.MagicMock()
     mock_prompt.ask.return_value = False
     mocker.patch('questionary.confirm', return_value=mock_prompt)
-    mocker.patch('documentor.cli.app.state_manager')
 
     result = runner.invoke(app, ["destroy"])
     assert result.exit_code == 0
@@ -75,11 +71,11 @@ def test_destroy_command_success(mocker, cli_config, tmp_path):
     ds = DocState(filepath=doc_path, tracking_type="file", source_refs=[], last_source_hash="")
     mock_state_manager.state.managed_docs = [ds]
     mock_state_manager.statefile_exists.return_value = True
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.manage.ctx.state_manager', mock_state_manager)
     
     mock_config_manager = mocker.MagicMock()
     mock_config_manager.config_exists.return_value = True
-    mocker.patch('documentor.cli.app.config_manager', mock_config_manager)
+    mocker.patch('documentor.cli.commands.manage.ctx.config_manager', mock_config_manager)
     mocker.patch('os.remove')
     
     result = runner.invoke(app, ["destroy", "--with-files"])
@@ -95,7 +91,7 @@ def test_add_command(mocker):
 
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.state.managed_docs = []
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.manage.ctx.state_manager', mock_state_manager)
 
     result = runner.invoke(app, ["add", "docs/new.md", "-d", "new file"])
     assert result.exit_code == 0
@@ -105,7 +101,7 @@ def test_add_command(mocker):
 def test_generate_command_no_docs(mocker):
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.state.managed_docs = []
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.docs.ctx.state_manager', mock_state_manager)
     
     result = runner.invoke(app, ["generate"])
     assert result.exit_code == 0
@@ -116,9 +112,9 @@ def test_generate_command_all_updated(mocker, cli_config):
     ds = DocState(filepath=Path("docs/test.md"), tracking_type="file", source_refs=[], last_source_hash="")
     mock_state_manager.state.managed_docs = [ds]
     mock_state_manager.get_stale_docs.return_value = []
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.docs.ctx.state_manager', mock_state_manager)
     mocker.patch('os.path.exists', return_value=True)
-    mocker.patch('documentor.cli.app.config', cli_config)
+    mocker.patch('documentor.cli.commands.docs.ctx.config', cli_config)
     
     result = runner.invoke(app, ["generate"])
     assert result.exit_code == 0
@@ -128,10 +124,10 @@ def test_generate_command_force(mocker, cli_config):
     mock_state_manager = mocker.MagicMock()
     ds = DocState(filepath=Path("docs/test.md"), tracking_type="file", source_refs=[], last_source_hash="")
     mock_state_manager.state.managed_docs = [ds]
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
-    mocker.patch('documentor.cli.app.config', cli_config)
+    mocker.patch('documentor.cli.commands.docs.ctx.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.docs.ctx.config', cli_config)
     
-    mock_run_generation = mocker.patch('documentor.cli.app._run_generation')
+    mock_run_generation = mocker.patch('documentor.cli.commands.docs.run_generation')
     
     result = runner.invoke(app, ["generate", "--force"])
     assert result.exit_code == 0
@@ -143,7 +139,7 @@ def test_generate_command_force(mocker, cli_config):
 def test_sync_command_no_stale(mocker, cli_config):
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.get_stale_docs.return_value = []
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.docs.ctx.state_manager', mock_state_manager)
     
     result = runner.invoke(app, ["sync"])
     assert result.exit_code == 0
@@ -158,10 +154,10 @@ def test_sync_command_with_stale(mocker, cli_config, tmp_path):
     
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.get_stale_docs.return_value = [ds]
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
-    mocker.patch('documentor.cli.app.config', cli_config)
+    mocker.patch('documentor.cli.commands.docs.ctx.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.docs.ctx.config', cli_config)
     
-    mock_async_sync = mocker.patch('documentor.cli.app.async_agent_sync_docs', new_callable=AsyncMock)
+    mock_async_sync = mocker.patch('documentor.cli.commands.docs.async_agent_sync_docs', new_callable=AsyncMock)
     mock_async_sync.return_value = ["docs/test.md"]
     
     result = runner.invoke(app, ["sync"])
@@ -173,10 +169,10 @@ def test_sync_command_with_stale(mocker, cli_config, tmp_path):
 def test_plan_command(mocker, cli_config):
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.state.managed_docs = []
-    mocker.patch('documentor.cli.app.state_manager', mock_state_manager)
-    mocker.patch('documentor.cli.app.config', cli_config)
+    mocker.patch('documentor.cli.commands.docs.ctx.state_manager', mock_state_manager)
+    mocker.patch('documentor.cli.commands.docs.ctx.config', cli_config)
     
-    mock_agent_plan = mocker.patch('documentor.cli.app.agent_generate_plan')
+    mock_agent_plan = mocker.patch('documentor.cli.commands.docs.agent_generate_plan')
     mock_agent_plan.return_value = [DocItem(filename="new_api.md", description="API docs")]
     
     mock_prompt = mocker.MagicMock()
@@ -194,12 +190,12 @@ def test_edit_command(mocker, cli_config, tmp_path):
     doc_path.parent.mkdir()
     doc_path.write_text("old content")
     
-    mocker.patch('documentor.cli.app.config', cli_config)
+    mocker.patch('documentor.cli.commands.manage.ctx.config', cli_config)
     mocker.patch('typer.prompt', return_value="Make it better")
     
-    mock_edit_doc = mocker.patch('documentor.cli.app.agent_edit_doc', return_value="new content")
-    mock_writer = mocker.patch('documentor.cli.app.writer.write', return_value=str(doc_path))
-    mock_state_manager = mocker.patch('documentor.cli.app.state_manager')
+    mock_edit_doc = mocker.patch('documentor.cli.commands.manage.agent_edit_doc', return_value="new content")
+    mock_writer = mocker.patch('documentor.cli.commands.manage.ctx.writer.write', return_value=str(doc_path))
+    mock_state_manager = mocker.patch('documentor.cli.commands.manage.ctx.state_manager')
     
     result = runner.invoke(app, ["edit", str(doc_path)])
     assert result.exit_code == 0
@@ -213,14 +209,14 @@ def test_expand_command(mocker, cli_config, tmp_path):
     doc_path.parent.mkdir()
     doc_path.write_text("- bullet 1")
     
-    mocker.patch('documentor.cli.app.config', cli_config)
+    mocker.patch('documentor.cli.commands.manage.ctx.config', cli_config)
     
-    mock_infer = mocker.patch('documentor.cli.app.agent_infer_doc_info')
+    mock_infer = mocker.patch('documentor.cli.commands.manage.agent_infer_doc_info')
     mock_infer.return_value = DocItem(filename="test.md", description="Inferred desc")
     
-    mock_expand = mocker.patch('documentor.cli.app.agent_expand_doc', return_value="Full content")
-    mock_writer = mocker.patch('documentor.cli.app.writer.write', return_value=str(doc_path))
-    mock_state_manager = mocker.patch('documentor.cli.app.state_manager')
+    mock_expand = mocker.patch('documentor.cli.commands.manage.agent_expand_doc', return_value="Full content")
+    mock_writer = mocker.patch('documentor.cli.commands.manage.ctx.writer.write', return_value=str(doc_path))
+    mock_state_manager = mocker.patch('documentor.cli.commands.manage.ctx.state_manager')
     mock_state_manager.state.managed_docs = []
     
     result = runner.invoke(app, ["expand", str(doc_path)])
@@ -231,10 +227,9 @@ def test_expand_command(mocker, cli_config, tmp_path):
     mock_state_manager.upsert_doc.assert_called_once()
 
 def test_init_command_interactive(mocker, cli_config, tmp_path):
-    mocker.patch('documentor.cli.app.config_manager.config_exists', return_value=False)
-    mocker.patch('documentor.cli.app.state_manager.statefile_exists', return_value=False)
+    mocker.patch('documentor.cli.commands.setup.ctx.config_manager.config_exists', return_value=False)
+    mocker.patch('documentor.cli.commands.setup.ctx.state_manager.statefile_exists', return_value=False)
     
-    # Mocking questionary prompts
     mock_confirm = mocker.MagicMock()
     mock_confirm.ask.side_effect = [
         True,  # Use default output
@@ -249,10 +244,9 @@ def test_init_command_interactive(mocker, cli_config, tmp_path):
     mock_text.ask.return_value = "docs/style.md"
     mocker.patch('questionary.text', return_value=mock_text)
     
-    mock_save = mocker.patch('documentor.cli.app.config_manager.save_config')
+    mock_save = mocker.patch('documentor.cli.commands.setup.ctx.config_manager.save_config')
     
-    # mock plan generation inside init
-    mocker.patch('documentor.cli.app.agent_generate_plan', return_value=[])
+    mocker.patch('documentor.cli.commands.setup.agent_generate_plan', return_value=[])
     
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
