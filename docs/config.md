@@ -86,10 +86,10 @@ Documentor integrates with [LangSmith](https://smith.langchain.com/) to provide 
 To enable tracking, add the following variables to your `.env` file:
 
 ```env
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_api_key_here
-LANGCHAIN_PROJECT=documentor
-LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+LANGSMITH_TRACING_V2=true
+LANGSMITH_API_KEY=your_api_key_here
+LANGSMITH_PROJECT=documentor
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 ```
 
 > *Docs generated with [documentor](https://github.com/YusufHosny/documentor)*
