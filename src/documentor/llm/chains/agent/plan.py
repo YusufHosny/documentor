@@ -3,7 +3,6 @@ from langchain_core.messages import HumanMessage
 from documentor.llm.client import get_llm, create_retryable_agent, retryable
 from langchain_core.prompts import ChatPromptTemplate
 from documentor.core.config import Config, DocList, DocItem
-from documentor.llm.client import get_llm
 from documentor.llm.prompts.plan import get_system_prompt as plan_system, get_user_prompt as plan_user
 from documentor.llm.prompts.infer import get_system_prompt as infer_system, get_user_prompt as infer_user
 from .tools import get_tools

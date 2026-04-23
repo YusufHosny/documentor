@@ -5,7 +5,6 @@ from documentor.llm.client import get_llm, create_retryable_agent, retryable
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from documentor.core.config import Config
-from documentor.llm.client import get_llm
 from documentor.llm.prompts.sync import get_system_prompt, get_user_prompt
 from documentor.llm.prompts.common import get_refine_prompt
 from .tools import get_tools

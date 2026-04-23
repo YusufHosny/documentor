@@ -1,26 +1,28 @@
 import os
 from pathlib import Path
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from pytest import MonkeyPatch
+from pytest_mock import MockerFixture
+from unittest.mock import AsyncMock
 from typer.testing import CliRunner
 from documentor.cli.app import app
 from documentor.core.config import Config, DocItem
-from documentor.core.state import StateManager, ProjectState, DocState
+from documentor.core.state import DocState
 
 runner = CliRunner()
 
 @pytest.fixture
-def cli_config(tmp_path, monkeypatch):
+def cli_config(tmp_path: Path, monkeypatch: MonkeyPatch) -> Config:
     monkeypatch.chdir(tmp_path)
     config = Config(docs_dir="docs", provider="vertexai", model="test-model", include_footer=False)
     return config
 
-def test_version():
+def test_version() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert "Documentor version:" in result.stdout
 
-def test_remove_nonexistent(mocker, cli_config):
+def test_remove_nonexistent(mocker: MockerFixture, cli_config: Config) -> None:
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.state.managed_docs = []
     mocker.patch('documentor.cli.commands.manage.ctx.state_manager', mock_state_manager)
@@ -30,7 +32,7 @@ def test_remove_nonexistent(mocker, cli_config):
     assert "Warning: nonexistent.md is not currently tracked" in result.stdout
     assert "Successfully removed nonexistent.md" in result.stdout
 
-def test_remove_existing(mocker, cli_config, tmp_path):
+def test_remove_existing(mocker: MockerFixture, cli_config: Config, tmp_path: Path) -> None:
     doc_path = tmp_path / "docs" / "test.md"
     doc_path.parent.mkdir()
     doc_path.write_text("content")
@@ -49,7 +51,7 @@ def test_remove_existing(mocker, cli_config, tmp_path):
     mock_state_manager.remove_doc.assert_called_once()
     assert not doc_path.exists()
 
-def test_destroy_command_abort(mocker):
+def test_destroy_command_abort(mocker: MockerFixture) -> None:
     mock_prompt = mocker.MagicMock()
     mock_prompt.ask.return_value = False
     mocker.patch('questionary.confirm', return_value=mock_prompt)
@@ -58,7 +60,7 @@ def test_destroy_command_abort(mocker):
     assert result.exit_code == 0
     assert "Destruction cancelled." in result.stdout
 
-def test_destroy_command_success(mocker, cli_config, tmp_path):
+def test_destroy_command_success(mocker: MockerFixture, cli_config: Config, tmp_path: Path) -> None:
     mock_prompt = mocker.MagicMock()
     mock_prompt.ask.return_value = True
     mocker.patch('questionary.confirm', return_value=mock_prompt)
@@ -86,7 +88,7 @@ def test_destroy_command_success(mocker, cli_config, tmp_path):
     
     mock_state_manager.clear_statefile.assert_called_once()
     
-def test_add_command(mocker):
+def test_add_command(mocker: MockerFixture) -> None:
     mocker.patch('os.path.exists', return_value=True)
 
     mock_state_manager = mocker.MagicMock()
@@ -98,7 +100,7 @@ def test_add_command(mocker):
     assert "Successfully added docs/new.md to tracking!" in result.stdout
     mock_state_manager.upsert_doc.assert_called_once()
 
-def test_generate_command_no_docs(mocker):
+def test_generate_command_no_docs(mocker: MockerFixture) -> None:
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.state.managed_docs = []
     mocker.patch('documentor.cli.commands.docs.ctx.state_manager', mock_state_manager)
@@ -107,7 +109,7 @@ def test_generate_command_no_docs(mocker):
     assert result.exit_code == 0
     assert "No documentation files defined" in result.stdout
     
-def test_generate_command_all_updated(mocker, cli_config):
+def test_generate_command_all_updated(mocker: MockerFixture, cli_config: Config) -> None:
     mock_state_manager = mocker.MagicMock()
     ds = DocState(filepath=Path("docs/test.md"), tracking_type="file", source_refs=[], last_source_hash="")
     mock_state_manager.state.managed_docs = [ds]
@@ -120,7 +122,7 @@ def test_generate_command_all_updated(mocker, cli_config):
     assert result.exit_code == 0
     assert "All documentation is up to date" in result.stdout
     
-def test_generate_command_force(mocker, cli_config):
+def test_generate_command_force(mocker: MockerFixture, cli_config: Config) -> None:
     mock_state_manager = mocker.MagicMock()
     ds = DocState(filepath=Path("docs/test.md"), tracking_type="file", source_refs=[], last_source_hash="")
     mock_state_manager.state.managed_docs = [ds]
@@ -136,7 +138,7 @@ def test_generate_command_force(mocker, cli_config):
     assert len(args) == 1
     assert args[0].filename == "test.md"
 
-def test_sync_command_no_stale(mocker, cli_config):
+def test_sync_command_no_stale(mocker: MockerFixture, cli_config: Config) -> None:
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.get_stale_docs.return_value = []
     mocker.patch('documentor.cli.commands.docs.ctx.state_manager', mock_state_manager)
@@ -145,7 +147,7 @@ def test_sync_command_no_stale(mocker, cli_config):
     assert result.exit_code == 0
     assert "All documentation is up to date" in result.stdout
 
-def test_sync_command_with_stale(mocker, cli_config, tmp_path):
+def test_sync_command_with_stale(mocker: MockerFixture, cli_config: Config, tmp_path: Path) -> None:
     doc_path = tmp_path / "docs" / "test.md"
     doc_path.parent.mkdir()
     doc_path.write_text("old content")
@@ -166,7 +168,7 @@ def test_sync_command_with_stale(mocker, cli_config, tmp_path):
     mock_async_sync.assert_called_once()
     mock_state_manager.upsert_doc.assert_called_once()
 
-def test_plan_command(mocker, cli_config):
+def test_plan_command(mocker: MockerFixture, cli_config: Config) -> None:
     mock_state_manager = mocker.MagicMock()
     mock_state_manager.state.managed_docs = []
     mocker.patch('documentor.cli.commands.docs.ctx.state_manager', mock_state_manager)
@@ -185,7 +187,7 @@ def test_plan_command(mocker, cli_config):
     assert "Updated documentor-lock.yaml" in result.stdout
     mock_state_manager.upsert_doc.assert_called_once()
 
-def test_edit_command(mocker, cli_config, tmp_path):
+def test_edit_command(mocker: MockerFixture, cli_config: Config, tmp_path: Path) -> None:
     doc_path = tmp_path / "docs" / "test.md"
     doc_path.parent.mkdir()
     doc_path.write_text("old content")
@@ -204,7 +206,7 @@ def test_edit_command(mocker, cli_config, tmp_path):
     mock_writer.assert_called_once_with(str(doc_path), "new content")
     mock_state_manager.upsert_doc.assert_called_once()
 
-def test_expand_command(mocker, cli_config, tmp_path):
+def test_expand_command(mocker: MockerFixture, cli_config: Config, tmp_path: Path) -> None:
     doc_path = tmp_path / "docs" / "test.md"
     doc_path.parent.mkdir()
     doc_path.write_text("- bullet 1")
@@ -226,7 +228,7 @@ def test_expand_command(mocker, cli_config, tmp_path):
     mock_writer.assert_called_once()
     mock_state_manager.upsert_doc.assert_called_once()
 
-def test_init_command_interactive(mocker, cli_config, tmp_path):
+def test_init_command_interactive(mocker: MockerFixture, cli_config: Config, tmp_path: Path) -> None:
     mocker.patch('documentor.cli.commands.setup.ctx.config_manager.config_exists', return_value=False)
     mocker.patch('documentor.cli.commands.setup.ctx.state_manager.statefile_exists', return_value=False)
     

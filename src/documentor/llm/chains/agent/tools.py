@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from langchain_core.tools import tool
 import re
 from pathlib import Path

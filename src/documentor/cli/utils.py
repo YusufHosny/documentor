@@ -1,8 +1,7 @@
 import typer
 import asyncio
-from typing import List, Optional
-from documentor.core.config import Config, DocItem
-from documentor.core.parser import Parser
+from typing import List
+from documentor.core.config import DocItem
 from documentor.cli.context import ctx
 from documentor.llm.chains.agent import async_agent_generate_docs
 from pathlib import Path

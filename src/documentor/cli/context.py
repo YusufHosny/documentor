@@ -1,5 +1,3 @@
-import os
-import typer
 from rich.console import Console
 from documentor.core.config import ConfigManager
 from documentor.core.state import StateManager

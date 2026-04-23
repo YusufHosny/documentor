@@ -1,6 +1,6 @@
 import os
 import pathspec
-from typing import List, Dict, Optional
+from typing import List, Optional
 from documentor.core.config import Config
 
 class Parser:

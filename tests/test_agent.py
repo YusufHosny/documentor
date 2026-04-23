@@ -1,7 +1,9 @@
-import os
 import pytest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from collections.abc import Generator
+from pytest import MonkeyPatch
+from pytest_mock import MockerFixture
+from unittest.mock import AsyncMock
 from documentor.core.config import Config, DocItem, DocList
 from documentor.core.state import StateManager
 from langchain_core.messages import HumanMessage
@@ -14,7 +16,7 @@ from documentor.llm.chains.agent.expand import agent_expand_doc
 from documentor.llm.chains.agent.sync import agent_sync_doc, async_agent_sync_docs
 
 @pytest.fixture
-def mock_config(tmp_path, monkeypatch):
+def mock_config(tmp_path: Path, monkeypatch: MonkeyPatch) -> Generator[Config, None, None]:
     monkeypatch.chdir(tmp_path)
     
     config = Config(
@@ -27,10 +29,10 @@ def mock_config(tmp_path, monkeypatch):
     yield config
 
 @pytest.fixture
-def mock_state_manager(mock_config):
+def mock_state_manager(mock_config: Config) -> StateManager:
     return StateManager(mock_config)
 
-def test_agent_tools(mock_config, tmp_path):
+def test_agent_tools(mock_config: Config, tmp_path: Path) -> None:
     tools = get_tools(mock_config)
     grep_tool = next(t for t in tools if t.name == "grep_files")
     list_tool = next(t for t in tools if t.name == "list_files")
@@ -69,7 +71,7 @@ def test_agent_tools(mock_config, tmp_path):
     error_content = read_tool.invoke({"path": "fake.py"})
     assert "Error: Could not read file" in error_content
 
-def test_agent_generate_docs(mocker, mock_config, mock_state_manager):
+def test_agent_generate_docs(mocker: MockerFixture, mock_config: Config, mock_state_manager: StateManager) -> None:
     # Mocking
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.generate.get_llm", return_value=mock_llm)
@@ -95,7 +97,7 @@ def test_agent_generate_docs(mocker, mock_config, mock_state_manager):
     mock_refine_chain.invoke.assert_called()
 
 @pytest.mark.asyncio
-async def test_async_agent_generate_docs(mocker, mock_config, mock_state_manager):
+async def test_async_agent_generate_docs(mocker: MockerFixture, mock_config: Config, mock_state_manager: StateManager) -> None:
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.generate.get_llm", return_value=mock_llm)
     
@@ -118,7 +120,7 @@ async def test_async_agent_generate_docs(mocker, mock_config, mock_state_manager
     mock_agent.ainvoke.assert_called()
     mock_refine_chain.ainvoke.assert_called()
 
-def test_agent_generate_plan(mocker, mock_config):
+def test_agent_generate_plan(mocker: MockerFixture, mock_config: Config) -> None:
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.plan.get_llm", return_value=mock_llm)
     
@@ -139,7 +141,7 @@ def test_agent_generate_plan(mocker, mock_config):
     assert result[0].filename == "api.md"
     assert result[0].description == "API Reference"
 
-def test_agent_generate_plan_error(mocker, mock_config):
+def test_agent_generate_plan_error(mocker: MockerFixture, mock_config: Config) -> None:
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.plan.get_llm", return_value=mock_llm)
     
@@ -156,7 +158,7 @@ def test_agent_generate_plan_error(mocker, mock_config):
     result = agent_generate_plan(mock_config, [])
     assert result == []
 
-def test_agent_infer_doc_info(mocker, mock_config):
+def test_agent_infer_doc_info(mocker: MockerFixture, mock_config: Config) -> None:
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.plan.get_llm", return_value=mock_llm)
     
@@ -174,7 +176,7 @@ def test_agent_infer_doc_info(mocker, mock_config):
     assert result.filename == "api.py"
     assert result.description == "The main API router"
 
-def test_agent_infer_doc_info_error(mocker, mock_config):
+def test_agent_infer_doc_info_error(mocker: MockerFixture, mock_config: Config) -> None:
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.plan.get_llm", return_value=mock_llm)
     
@@ -192,7 +194,7 @@ def test_agent_infer_doc_info_error(mocker, mock_config):
     assert result.filename == "api.py"
     assert result.description == "Auto-inferred documentation"
 
-def test_agent_edit_doc(mocker, mock_config):
+def test_agent_edit_doc(mocker: MockerFixture, mock_config: Config) -> None:
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.edit.get_llm", return_value=mock_llm)
     
@@ -208,7 +210,7 @@ def test_agent_edit_doc(mocker, mock_config):
     
     assert result == "Newly Edited Content"
 
-def test_agent_expand_doc(mocker, mock_config):
+def test_agent_expand_doc(mocker: MockerFixture, mock_config: Config) -> None:
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.expand.get_llm", return_value=mock_llm)
     
@@ -224,7 +226,7 @@ def test_agent_expand_doc(mocker, mock_config):
     
     assert result == "Expanded Content"
 
-def test_agent_sync_doc(mocker, mock_config):
+def test_agent_sync_doc(mocker: MockerFixture, mock_config: Config) -> None:
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.sync.get_llm", return_value=mock_llm)
     
@@ -240,7 +242,7 @@ def test_agent_sync_doc(mocker, mock_config):
     assert result == "Synced Content"
 
 @pytest.mark.asyncio
-async def test_async_agent_sync_docs(mocker, mock_config, mock_state_manager):
+async def test_async_agent_sync_docs(mocker: MockerFixture, mock_config: Config, mock_state_manager: StateManager) -> None:
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.sync.get_llm", return_value=mock_llm)
     

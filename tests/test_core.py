@@ -1,13 +1,15 @@
-import os
 import pytest
 from pathlib import Path
 import subprocess
-from documentor.core.config import Config, ConfigManager, DocItem
-from documentor.core.state import StateManager, DocState
+from collections.abc import Generator
+from pytest import MonkeyPatch
+from pytest_mock import MockerFixture
+from documentor.core.config import Config, ConfigManager
+from documentor.core.state import StateManager
 from documentor.core.parser import Parser
 from documentor.core.writer import Writer
 
-def test_writer_write(temp_config_dir):
+def test_writer_write(temp_config_dir: Path) -> None:
     config = Config(docs_dir="my_docs", include_footer=True)
     manager = StateManager(config)
     writer = Writer(config, manager)
@@ -36,11 +38,11 @@ def test_writer_write(temp_config_dir):
     assert "Docs generated with [documentor]" not in Path(res4).read_text()
 
 @pytest.fixture
-def temp_config_dir(tmp_path, monkeypatch):
+def temp_config_dir(tmp_path: Path, monkeypatch: MonkeyPatch) -> Generator[Path, None, None]:
     monkeypatch.chdir(tmp_path)
     yield tmp_path
 
-def test_config_manager(temp_config_dir):
+def test_config_manager(temp_config_dir: Path) -> None:
     manager = ConfigManager()
     assert not manager.config_exists()
 
@@ -57,7 +59,7 @@ def test_config_manager(temp_config_dir):
     manager.clear_config()
     assert not manager.config_exists()
 
-def test_state_manager(temp_config_dir):
+def test_state_manager(temp_config_dir: Path) -> None:
     config = Config(use_git=False)
     manager = StateManager(config)
 
@@ -86,7 +88,7 @@ def test_state_manager(temp_config_dir):
     manager.remove_doc(doc_path)
     assert len(manager.state.managed_docs) == 0
 
-def test_state_manager_git_hash_clean(temp_config_dir, mocker):
+def test_state_manager_git_hash_clean(temp_config_dir: Path, mocker: MockerFixture) -> None:
     config = Config(use_git=True)
     manager = StateManager(config)
     
@@ -101,7 +103,7 @@ def test_state_manager_git_hash_clean(temp_config_dir, mocker):
     hash_val = manager.get_current_hash()
     assert hash_val == "commit123"
 
-def test_state_manager_git_hash_dirty(temp_config_dir, mocker):
+def test_state_manager_git_hash_dirty(temp_config_dir: Path, mocker: MockerFixture) -> None:
     config = Config(use_git=True)
     manager = StateManager(config)
     
@@ -120,7 +122,7 @@ def test_state_manager_git_hash_dirty(temp_config_dir, mocker):
     hash_val = manager.get_current_hash()
     assert "commit123-dirty-" in hash_val
 
-def test_state_manager_git_error(temp_config_dir, mocker):
+def test_state_manager_git_error(temp_config_dir: Path, mocker: MockerFixture) -> None:
     config = Config(use_git=True)
     manager = StateManager(config)
     
@@ -132,7 +134,7 @@ def test_state_manager_git_error(temp_config_dir, mocker):
         
     assert "not a git repository" in str(exc.value)
 
-def test_parser_list_files_for_agent(temp_config_dir):
+def test_parser_list_files_for_agent(temp_config_dir: Path) -> None:
     config = Config(ignore_patterns=["*.txt"], ignore_above_size_kb=100)
     parser = Parser(config)
 
