@@ -158,7 +158,6 @@ def sync():
             async_agent_sync_docs(ctx.config, ctx.state_manager, docs_to_sync)
         )
 
-        # Update states
         for i, doc_data in enumerate(docs_to_sync):
             ds = doc_data["stale_doc_state"]
             final_path = final_paths[i]

@@ -38,41 +38,33 @@ def test_agent_tools(mock_config: Config, tmp_path: Path) -> None:
     list_tool = next(t for t in tools if t.name == "list_files")
     read_tool = next(t for t in tools if t.name == "read_file")
 
-    # Create dummy files
     (tmp_path / "main.py").write_text("def hello():\n    print('world')\n")
     (tmp_path / "test.txt").write_text("just some text with world in it")
 
-    # Test grep_files
     matches = grep_tool.invoke({"expression": "world"})
     assert len(matches) == 2
     assert any("main.py" in m for m in matches)
     assert any("test.txt" in m for m in matches)
 
-    # Test invalid regex
     invalid_matches = grep_tool.invoke({"expression": "["})
     assert len(invalid_matches) == 1
     assert "Invalid regular expression" in invalid_matches[0]
 
-    # Test no matches
     no_matches = grep_tool.invoke({"expression": "nonexistent_string"})
     assert len(no_matches) == 1
     assert "No matches found" in no_matches[0]
 
-    # Test list_files
     files = list_tool.invoke({})
     assert "main.py" in files
     assert "test.txt" in files
 
-    # Test read_file
     content = read_tool.invoke({"path": "main.py"})
     assert "def hello():" in content
 
-    # Test read nonexistent file
     error_content = read_tool.invoke({"path": "fake.py"})
     assert "Error: Could not read file" in error_content
 
 def test_agent_generate_docs(mocker: MockerFixture, mock_config: Config, mock_state_manager: StateManager) -> None:
-    # Mocking
     mock_llm = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.generate.get_llm", return_value=mock_llm)
     
@@ -82,7 +74,6 @@ def test_agent_generate_docs(mocker: MockerFixture, mock_config: Config, mock_st
     mock_refine_chain = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.generate.retryable", return_value=mock_refine_chain)
     
-    # Setup mock responses
     mock_agent.invoke.return_value = {"messages": [HumanMessage(content="Exploration data")]}
     mock_refine_chain.invoke.return_value = "Refined Document Content"
     
@@ -152,7 +143,6 @@ def test_agent_generate_plan_error(mocker: MockerFixture, mock_config: Config) -
     mock_chain = mocker.MagicMock()
     mocker.patch("documentor.llm.chains.agent.plan.retryable", return_value=mock_chain)
     
-    # Simulate LLM failure during parsing
     mock_chain.invoke.side_effect = Exception("LLM Agent Error")
     
     result = agent_generate_plan(mock_config, [])

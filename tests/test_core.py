@@ -14,24 +14,19 @@ def test_writer_write(temp_config_dir: Path) -> None:
     manager = StateManager(config)
     writer = Writer(config, manager)
     
-    # write relative to docs_dir
     res1 = writer.write("foo.md", "hello world")
     assert "my_docs/foo.md" in res1
     assert "hello world" in Path(res1).read_text()
     assert "Docs generated with [documentor]" in Path(res1).read_text()
     
-    # write absolute inside project
     res2 = writer.write(str(temp_config_dir / "my_docs" / "bar.md"), "hello bar")
     assert "my_docs/bar.md" in res2
     assert "hello bar" in Path(res2).read_text()
     
-    # write absolute outside project (should fallback)
     res3 = writer.write("outside.md", "hello outside")
-    # it forces it relative to docs_dir
     assert "my_docs/outside.md" in res3
     assert "hello outside" in Path(res3).read_text()
     
-    # test no footer
     config_no_foot = Config(docs_dir="my_docs", include_footer=False)
     writer_no_foot = Writer(config_no_foot, manager)
     res4 = writer_no_foot.write("baz.md", "hello baz")

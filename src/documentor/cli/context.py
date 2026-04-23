@@ -20,5 +20,4 @@ class AppContext:
         self.parser = Parser(self.config)
         self.writer = Writer(self.config, self.state_manager)
 
-# Global context instance
 ctx = AppContext()

@@ -36,7 +36,6 @@ def init():
 
     config_data = {}
 
-    # choose doc directory
     default_output = handle_cancel(
         questionary.confirm(
             "Use default output settings (docs directory, no footer)?", default=True
@@ -52,14 +51,12 @@ def init():
             ).ask()
         )
 
-    # tracking options
     config_data["use_git"] = handle_cancel(
         questionary.confirm(
             "Use git-based tracking for incremental updates?", default=True
         ).ask()
     )
 
-    # style md setup
     config_data["style_md_path"] = handle_cancel(
         questionary.text(
             "Enter the path to use for style.md (leave empty to skip):",
@@ -67,7 +64,6 @@ def init():
         ).ask()
     ).strip()
 
-    # llm setup
     default_model = handle_cancel(
         questionary.confirm(
             "Use default model (Google Vertex AI with gemini-3.1-pro)?", default=True
@@ -87,7 +83,6 @@ def init():
             ).ask()
         )
 
-    # file ignores setup
     default_ignore = handle_cancel(
         questionary.confirm(
             "Use default ignore setup (ignore common dirs like .git, venv, and files > 100KB)?",
@@ -114,12 +109,10 @@ def init():
     config = Config(**config_data)
     ctx.config_manager.save_config(config)
 
-    # Re-initialize context with the new config
     ctx.reload()
 
     ctx.console.print("[green]Created documentor.yaml successfully![/green]")
 
-    # style.md setup
     # TODO style md generation with questionnaire
     if ctx.config.style_md_path:
         create_style = handle_cancel(
@@ -134,7 +127,6 @@ def init():
             )
             os.makedirs(os.path.dirname(style_path) or ".", exist_ok=True)
 
-            # select a template
             choices = [f.replace(".md", "") for f in get_style_templates()] + ["empty"]
             selected_template = handle_cancel(
                 questionary.select(
@@ -160,7 +152,6 @@ def init():
                     f"[yellow]{style_path} already exists. Skipping initialization.[/yellow]"
                 )
 
-    # plan setup (documentor plan)
     ctx.console.print("[blue]Analyzing project context to generate plan...[/blue]")
     existing_docs = []
 
